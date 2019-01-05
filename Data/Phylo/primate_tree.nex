@@ -1,0 +1,101 @@
+#NEXUS
+[R-package APE, Sat Jun 24 08:34:52 2017]
+
+BEGIN TAXA;
+	DIMENSIONS NTAX = 44;
+	TAXLABELS
+		Cercopithecus_ascanius
+		Cercopithecus_mitis
+		Erythrocebus_patas
+		Miopithecus_talapoin
+		Avahi_laniger
+		Avahi_occidentalis
+		Cheirogaleus_major
+		Cheirogaleus_medius
+		Daubentonia_madagascariensis
+		Eulemur_fulvus_fulvus
+		Indri_indri
+		Lepilemur_ruficaudatus
+		Microcebus_murinus
+		Propithecus_verreauxi
+		Varecia_variegata_variegata
+		Alouatta_caraya
+		Ateles_geoffroyi
+		Lagothrix_lagotricha
+		Aotus_trivirgatus
+		Callimico_goeldii
+		Callithrix_jacchus
+		Callithrix_pygmaea
+		Cebus_albifrons
+		Saguinus_midas
+		Saguinus_oedipus
+		Saimiri_sciureus
+		Loris_tardigradus
+		Nycticebus_coucang
+		Perodicticus_potto
+		Gorilla_gorilla_gorilla
+		Homo_sapiens
+		Hylobates_lar
+		Pan_troglodytes_verus
+		Callicebus_moloch
+		Pithecia_pithecia
+		Lophocebus_albigena
+		Papio_anubis
+		Nasalis_larvatus
+		Piliocolobus_badius
+		Pygathrix_nemaeus
+		Galago_senegalensis
+		Galagoides_demidoff
+		Otolemur_crassicaudatus
+		Tarsius_bancanus
+	;
+END;
+BEGIN TREES;
+	TRANSLATE
+		1	Cercopithecus_ascanius,
+		2	Cercopithecus_mitis,
+		3	Erythrocebus_patas,
+		4	Miopithecus_talapoin,
+		5	Avahi_laniger,
+		6	Avahi_occidentalis,
+		7	Cheirogaleus_major,
+		8	Cheirogaleus_medius,
+		9	Daubentonia_madagascariensis,
+		10	Eulemur_fulvus_fulvus,
+		11	Indri_indri,
+		12	Lepilemur_ruficaudatus,
+		13	Microcebus_murinus,
+		14	Propithecus_verreauxi,
+		15	Varecia_variegata_variegata,
+		16	Alouatta_caraya,
+		17	Ateles_geoffroyi,
+		18	Lagothrix_lagotricha,
+		19	Aotus_trivirgatus,
+		20	Callimico_goeldii,
+		21	Callithrix_jacchus,
+		22	Callithrix_pygmaea,
+		23	Cebus_albifrons,
+		24	Saguinus_midas,
+		25	Saguinus_oedipus,
+		26	Saimiri_sciureus,
+		27	Loris_tardigradus,
+		28	Nycticebus_coucang,
+		29	Perodicticus_potto,
+		30	Gorilla_gorilla_gorilla,
+		31	Homo_sapiens,
+		32	Hylobates_lar,
+		33	Pan_troglodytes_verus,
+		34	Callicebus_moloch,
+		35	Pithecia_pithecia,
+		36	Lophocebus_albigena,
+		37	Papio_anubis,
+		38	Nasalis_larvatus,
+		39	Piliocolobus_badius,
+		40	Pygathrix_nemaeus,
+		41	Galago_senegalensis,
+		42	Galagoides_demidoff,
+		43	Otolemur_crassicaudatus,
+		44	Tarsius_bancanus
+	;
+	TREE * UNTITLED = [&R] (((((((((2:6.429209,1:6.429209)53:3.418917,3:9.848126)52:1.644988,4:11.493113)51:3.382065,(36:5.769163,37:5.769163)54:9.106015)50:6.535196,(39:15.435157,(38:9.634813,40:9.634813)56:5.800345)55:5.975217)49:8.589626,(32:19.605945,(30:8.652233,(31:6.17588,33:6.17588)59:2.476353)58:10.953713)57:10.394055)48:16.811821,(((16:14.76024,(17:9.147391,18:9.147391)63:5.612849)62:6.56106,((19:19.487521,((20:13.232628,(22:7.02913,21:7.02913)68:6.203497)67:2.479624,(24:8.361426,25:8.361427)69:7.350826)66:3.775269)65:0.605006,(23:18.569905,26:18.569905)70:1.522623)64:1.228773)61:1.411478,(35:19.396088,34:19.396087)71:3.336691)60:24.079043)47:22.028211,44:68.840033)46:4.162986,((((((13:22.563388,(7:11.388139,8:11.388139)78:11.17525)77:5.865706,12:28.429095)76:2.51681,(11:20.909032,((6:6.25278,5:6.25278)81:10.24982,14:16.5026)80:4.406432)79:10.036873)75:2.318811,(10:20.542801,15:20.542802)82:12.721914)74:17.859349,9:51.124065)73:11.612487,((29:34.635256,(27:24.057527,28:24.057528)85:10.577729)84:3.364744,((41:13.364418,43:13.364418)87:3.766768,42:17.131185)86:20.868815)83:24.736553)72:10.266465)45;
+END;
