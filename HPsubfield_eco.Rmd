@@ -86,7 +86,7 @@ names(HP_orig)[names(HP_orig)=="FasciaDentata"] <- "FD"
 names(HP_orig)[names(HP_orig)=="Subiculum"] <- "Sub"
 names(HP_orig)[names(HP_orig)=="HP_HS_fibers"] <- "Fibers"
 names(HP_orig)[names(HP_orig)=="Body"] <- "Body_Size"
-names(HP_orig)[names(HP_orig)=="Schizocortex"] <- "SCZ"
+names(HP_orig)[names(HP_orig)=="Schizocortex"] <- "EC" # switched from EC
 names(HP_orig)[names(HP_orig)=="HR_filled"] <- "Home_Range"
 
 # Log Neuroanatomical vars
@@ -100,7 +100,7 @@ HP_orig$Home_Range <-  scales::rescale(log(HP_orig$Home_Range),c(1,10))
 
 
 # Add combined regions as variables
-HP_orig$retroHP.SCZ <- HP_orig$retroHP + HP_orig$SCZ
+HP_orig$retroHP.EC <- HP_orig$retroHP + HP_orig$EC
 HP_orig$DG <- HP_orig$FD + HP_orig$Hilus
 HP_orig$CA2.3 <- HP_orig$CA2 + HP_orig$CA3
 
@@ -110,7 +110,7 @@ HP_orig[,c("BrainVol","HPvol")] <- HP_orig[,c("BrainVol","HPvol")] * 1000
 # Create retoHP minus each subregion
   HP_orig$Body__Brain <- HP_orig$Body_Size - HP_orig$BrainMass
   HP_orig$Brain__HP <- HP_orig$BrainVol - HP_orig$retroHP
-  HP_orig$Brain__SCZ <- HP_orig$BrainVol - HP_orig$SCZ
+  HP_orig$Brain__EC <- HP_orig$BrainVol - HP_orig$EC
   HP_orig$Brain__Fib <- HP_orig$BrainVol - HP_orig$Fibers
 
   HP_orig$retroHP__DG <- HP_orig$retroHP - HP_orig$DG
@@ -280,15 +280,15 @@ eco_plots <- function(pgls_function.out, eco_var, run_eco.out){
   ifelse( p<=0.05, 
           eco_plot <- ggplot(data, aes(y=brain, x=eco_x, fill=Clade, color=Clade, shape=Clade)) + 
            geom_smooth(na.rm=F, inherit.aes=F, method="lm", alpha = .15, data=data, aes(y=brain, x=eco_x)) +  
-           geom_point(size=3) + 
-           labs( y=paste(response_var,"res",sep="_"), x=paste(eco_var,sep="")) + 
+           geom_point(size=3) +  
+           xlab(paste(eco_var,sep="")) + ylab(paste(response_var,"res",sep="_")) +
            #title=paste("slope=", round(slope,4), "; p= ", round(p,4)),
            theme_classic() + 
            theme(plot.title = element_text(hjust=0.5,size=8), legend.position="none") +
            scale_shape_manual(values=shapes) + scale_color_manual(values=colors) + scale_fill_manual(values=colors), 
          
          eco_plot <- ggplot(data, aes(y=brain, x=eco_x, fill=Clade, color=Clade, shape=Clade)) + geom_point(size=3) +
-           labs(y=paste(response_var,"res",sep="_"), x=paste(eco_var,sep="")) + 
+           xlab(paste(eco_var,sep="")) + ylab(paste(response_var,"res",sep="_")) + 
            # title=paste("slope=", round(slope,4), "; p= ", round(p,4)), 
            theme_classic() + 
            theme(plot.title = element_text(hjust=0.5,size=8), legend.position="none") + 
@@ -404,33 +404,35 @@ run_eco(HPres.Enceph_res);   all_eco_plots(HPres.Enceph_res)
 ```
 
 
-## Schizocortex
+## Entorhinal Cortex*
 
-* Schizocortex: "Included are entorhinal, perirhinal, presubicular and parasubicular cortices and the underlying white matter. These cortices are characterized by the presence of one or several, almost cell-free layers of sublayers."
+* Entorhinal Cortex*: "Included are entorhinal, perirhinal, presubicular and parasubicular cortices and the underlying white matter. These cortices are characterized by the presence of one or several, almost cell-free layers of sublayers."
 + Stephan, H. et al. (1981) New and revised data on volume of brain structures in insectivores and primates. Folia primatol. 35, 1–29
 
-### Schizocortex vs. Medulla
+### Entorhinal Cortex* vs. Medulla
 
-NOTE: Using SCZ.med instead of SCZ.HP 1) flips the axes of the pPCA, and 2) gets rid of selective regime shift in human lineage. This is because humans are more divergent in SCZ.med (due to our massively enlarged neocotex, which EC is part of).
-```{r Schizocortex vs. Medulla}
-SCZ.Med_res <-pgls_function(HP, "SCZ", "Medulla")
-run_eco(SCZ.Med_res);   all_eco_plots(SCZ.Med_res)
+NOTE: Using EC.med instead of EC.HP 1) flips the axes of the pPCA, and 2) gets rid of selective regime shift in human lineage. This is because humans are more divergent in EC.med (due to our massively enlarged neocotex, which EC is part of).
+```{r Entorhinal Cortex* vs. Medulla}
+EC.Med_res <-pgls_function(HP, "EC", "Medulla")
+run_eco(EC.Med_res);   all_eco_plots(EC.Med_res)
 ```
 
-### Schizocortex vs. BrainVol
+### Entorhinal Cortex* vs. BrainVol
 
-```{r Schizocortex vs. BrainVol}
-SCZ.Brain_res <-pgls_function(HP, "SCZ", "Brain__SCZ")
-run_eco(SCZ.Brain_res); all_eco_plots(SCZ.Brain_res)
+```{r Entorhinal Cortex* vs. BrainVol}
+EC.Brain_res <-pgls_function(HP, "EC", "Brain__EC")
+run_eco(EC.Brain_res); all_eco_plots(EC.Brain_res)
 ```
 
-### Schizocortex vs. retroHP * * *
+### Entorhinal Cortex* vs. retroHP
+
+**Note:: Used as final EC**
 
 Result: No relationship
-```{r Schizocortex vs. retroHP}
-SCZ.HP_res <-pgls_function(HP, "SCZ", "retroHP")
-run_eco(SCZ.HP_res);   all_eco_plots(SCZ.HP_res)
-#pgls_function(HP, "SCZ_res", "BrainVol")
+```{r Entorhinal Cortex* vs. retroHP}
+EC.HP_res <-pgls_function(HP, "EC", "retroHP")
+run_eco(EC.HP_res);   all_eco_plots(EC.HP_res)
+#pgls_function(HP, "EC_res", "BrainVol")
 ```
 
 ## HP Fibers
@@ -449,11 +451,11 @@ fibers.brain_res <-pgls_function(HP, "Fibers", "Brain__Fib")
 run_eco(fibers.brain_res); all_eco_plots(fibers.brain_res)
 ```
 
-### HP Fibers vs. retroHP + SCZ * * *
+### HP Fibers vs. retroHP + EC * * *
 
 Result: No relationship
-```{r HP Fibers vs. retroHP + SCZ}
-fibers.HP_res <-pgls_function(HP, "Fibers", "retroHP.SCZ")
+```{r HP Fibers vs. retroHP + EC}
+fibers.HP_res <-pgls_function(HP, "Fibers", "retroHP.EC")
 run_eco(fibers.HP_res);   all_eco_plots(fibers.HP_res)
 #pgls_function(HP, "Fibers_res", "BrainVol") 
 ```
@@ -549,11 +551,11 @@ grid.arrange(HP.Med_res$xy_plot, HP.Brain_res$xy_plot, HPres.Enceph_res$xy_plot,
              ncol = 3, top = textGrob("Scaling Diagnostics", gp=gpar(fontsize=20)))
 ```
 
-### SCZ & Fibers multiplots
-```{r SCZ & Fibers multiplots}
-grid.arrange(SCZ.HP_res$xy_plot, SCZ.Med_res$xy_plot, SCZ.Brain_res$xy_plot,
+### EC & Fibers multiplots
+```{r EC & Fibers multiplots}
+grid.arrange(EC.HP_res$xy_plot, EC.Med_res$xy_plot, EC.Brain_res$xy_plot,
              fibers.HP_res$xy_plot, fibers.Med_res$xy_plot, fibers.brain_res$xy_plot, 
-                 ncol=3, top=textGrob("SCZ & Fiber Regressions", gp=gpar(fontsize=20)))
+                 ncol=3, top=textGrob("EC & Fiber Regressions", gp=gpar(fontsize=20)))
 ```
 
 ### retroHP subfield multiplots
@@ -603,7 +605,7 @@ residual_proportions <- function (HP_data, residuals){
   }   
 
 # Absolute
-subregion_proportions(HP$data, c("Sub", "CA1", "CA2", "CA3", "Hilus", "FD", "SCZ","Fibers")) 
+subregion_proportions(HP$data, c("Sub", "CA1", "CA2", "CA3", "Hilus", "FD", "EC","Fibers")) 
 
 # # Residuals
 # residual_proportions(HP$data, residuals=c("retroHP__Sub", "retroHP__CA1", "retroHP__CA2",
@@ -634,7 +636,7 @@ extract_neuro <- function(pgls_function.out){
 
 neuro.summ <- rbind(
       data.frame(Residual="retroHP.med_res", extract_neuro(HP.Med_res)),
-      data.frame(Residual="SCZ.HP_res", extract_neuro(SCZ.HP_res)),
+      data.frame(Residual="EC.HP_res", extract_neuro(EC.HP_res)),
       data.frame(Residual="Fiber.HP_res", extract_neuro(fibers.HP_res)),
       data.frame(Residual="DG.HP_res", extract_neuro(DG.HP_res)),
       data.frame(Residual="FD.HP_res", extract_neuro(FD.HP_res)),
@@ -680,7 +682,7 @@ extract_eco <- function(pgls_function.out){
 
 eco.summ <- rbind(
       data.frame(Residual="retroHP.med_res", extract_eco(HP.Med_res)),
-      data.frame(Residual="SCZ.HP_res", extract_eco(SCZ.HP_res)),
+      data.frame(Residual="EC.HP_res", extract_eco(EC.HP_res)),
       data.frame(Residual="Fiber.HP_res", extract_eco(fibers.HP_res)),
       data.frame(Residual="DG.HP_res", extract_eco(DG.HP_res)),
       data.frame(Residual="FD.HP_res", extract_eco(FD.HP_res)),
@@ -709,9 +711,9 @@ pander(eco.summ,  caption="Ecological PGLS Regressions Summary", style="simple")
 ```{r Set up interactive 3D plots & PCA data}
 # Select which vars to put in PCA
 ## All residuals
-all.vars <- c("retroHP_res", "SCZ_res", "Fibers_res", "DG_res", "FD_res", "Hilus_res", "CA2.3_res","CA3_res", "CA2_res", "CA1_res", "Sub_res")
+all.vars <- c("retroHP_res", "EC_res", "Fibers_res", "DG_res", "FD_res", "Hilus_res", "CA2.3_res","CA3_res", "CA2_res", "CA1_res", "Sub_res")
 ## Simplified
-vars <- c("SCZ_res", "Fibers_res", "FD_res", "Hilus_res","CA3_res", "CA2_res", "CA1_res", "Sub_res") 
+vars <- c("EC_res", "Fibers_res", "FD_res", "Hilus_res","CA3_res", "CA2_res", "CA1_res", "Sub_res") 
 Clade <- factor(HP$data$Clade, c("Homo sapiens","Apes","Old World Monkeys","New World Monkeys","Tarsiiformes","Strepsirrhines"), ordered=T)
 plot.alldata <- dplyr::select(HP$data, one_of(all.vars)) %>% na.omit()
 plot.data <- dplyr::select(HP$data, one_of(vars)) %>% na.omit()
@@ -1017,7 +1019,7 @@ PC4_eco <- PCrun_eco(HP, "PC4");  PC4_eco$pgls_eco_summary
 # From another perspective, inter-subregional correlations might reveal interesting relationships about how some subregions tend to evolve together.
 
 # Set up variables
-cor.vars  <- c("BrainVol", "BrainVol_res", "retroHP", "retroHP_res", "SCZ_res", "Fibers_res", "DG_res", "FD_res", "Hilus_res", "CA2.3_res","CA3_res", "CA2_res", "CA1_res", "Sub_res")
+cor.vars  <- c("BrainVol", "BrainVol_res", "retroHP", "retroHP_res", "EC_res", "Fibers_res", "DG_res", "FD_res", "Hilus_res", "CA2.3_res","CA3_res", "CA2_res", "CA1_res", "Sub_res")
 cor.data <- dplyr::select(HP$data, one_of(cor.vars)) %>% na.omit()
 
 # Non-phylogenetic cors
@@ -1060,16 +1062,16 @@ corrplot.mixed(cor.phylo.matrix, order="original", addrect=3, tl.col="black",
 * Try HPeco analyses
 ```{r l1ou Function}
 # Parallelize to speed up
+# nCores <- parallel::detectCores()
 
 #install_github("khabbazian/l1ou")
-l1ou <- function(tree, dat, model="pBIC"){
-  nCores <- parallel::detectCores()
+l1ou <- function(tree, dat, model="pBIC", nCores=nCores){
 
   #Selective regime analysis
   ## Make species in tree and data the same order
   tree.dat <- adjust_data(tree, dat)
   # Conduct main anaylsis
-  eModel <- estimate_shift_configuration(tree.dat$tree, tree.dat$Y, nCores = nCores)
+  eModel <- estimate_shift_configuration(tree.dat$tree, tree.dat$Y)#, nCores = nCores
   ## Compute the information criterion score for a given configuration
   config_IC <- configuration_ic(tree.dat$tree, eModel$Y, eModel$shift.configuration,
                                 criterion=paste(model))
@@ -1080,9 +1082,9 @@ l1ou <- function(tree, dat, model="pBIC"){
 #Convergence
   Y <- tree.dat$Y
   ## first fit a model to find individual shifts (no convergence assumed):
-  fit_ind <- estimate_shift_configuration(tree, Y, criterion="AICc",nCores=nCores)
+  fit_ind <- estimate_shift_configuration(tree, Y, criterion="AICc",nCores=4)
   ## then detect which of these shifts are convergent:
-  fit_conv <- estimate_convergent_regimes(fit_ind, criterion="AICc", nCores=nCores)
+  fit_conv <- estimate_convergent_regimes(fit_ind, criterion="AICc", nCores=4)
   fitconv_plot <- plot(fit_conv, edge.width=3); fitconv_plot
   
   output <- list(tree.dat=tree.dat, config_IC=config_IC, 
@@ -1111,7 +1113,7 @@ subs.pBIC <- l1ou(tree, dat=plot.data, model="pBIC")
 # retroHP_res only
 HPres.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,retroHP_res), model="pBIC")
 # Individual subregions
-SCZ.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,SCZ_res), model="pBIC")
+EC.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,EC_res), model="pBIC")
 Fibers.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,Fibers_res), model="pBIC")
 DG.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,DG_res), model="pBIC")
   FD.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,FD_res), model="pBIC")
@@ -1251,29 +1253,29 @@ write.nexus(tree,file="primate_tree.nex")
 species <- "Homo_sapiens"
 
 
-n <- dplyr::select(HP$data, BrainVol_res,SCZ,FD,Hilus,CA3,CA2,CA1,Sub) 
+n <- dplyr::select(HP$data, BrainVol_res,EC,FD,Hilus,CA3,CA2,CA1,Sub) 
 n$BrainVol_res <- scales::rescale(n$BrainVol_res,c(1,150)) # Scale Brain_res
 n$Species <- row.names(n)
 n$Clade <- HP$data$Clade
 n <- dplyr::filter(n, Species==paste(species)) # Select species
 library(reshape2); library(dplyr)
 melt.nodez <- melt(n,id.vars=c("Species","Clade"), measure.vars=
-                     c("BrainVol_res","SCZ","FD","Hilus","CA3","CA2","CA1","Sub"),
+                     c("BrainVol_res","EC","FD","Hilus","CA3","CA2","CA1","Sub"),
                    variable.name="Region",value.name="Size") %>%
 dplyr::select(Region,Size)
 
 melt.nodez[2:8,"Size"] <- scales::rescale(melt.nodez[2:8,"Size"] / sum(melt.nodez[2:8,"Size"]), c(1,100))
 nodes <- melt.nodez
 
-links <- rbind(data.frame(from="BrainVol_res", to="SCZ"), 
-               data.frame(from="SCZ", to="BrainVol_res"), 
-               data.frame(from="SCZ", to="FD"), 
+links <- rbind(data.frame(from="BrainVol_res", to="EC"), 
+               data.frame(from="EC", to="BrainVol_res"), 
+               data.frame(from="EC", to="FD"), 
                data.frame(from="FD", to="Hilus"),
                data.frame(from="Hilus",to="CA3"),
                data.frame(from="CA3", to="CA2"),
                data.frame(from="CA2", to="CA1"),
                data.frame(from="CA1", to="Sub"),
-               data.frame(from="Sub", to="SCZ") )
+               data.frame(from="Sub", to="EC") )
 
 library(igraph)
 net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 

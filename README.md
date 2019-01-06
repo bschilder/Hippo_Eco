@@ -1,6 +1,6 @@
 # Hippo_Eco
 
-A interactive report of the results from this study is available here:  
+An interactive report of the results from this study is available here:  
 https://bschilder.github.io/Hippo_Eco/HPsubfield_eco.html
 
 
