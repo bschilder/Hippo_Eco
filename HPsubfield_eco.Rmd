@@ -27,6 +27,8 @@ library(readxl)
 library(dplyr)  
 library(pander) 
 library(reshape2)
+library(shiny)
+library(DT)
 
 library(ggplot2) #devtools::install_github('cran/ggplot2')    
 library(gplots)
@@ -38,6 +40,8 @@ library(gridExtra)
 library(grid) 
 library(cowplot)
 library(plotly)
+library(heatmaply)
+#library(xlss) # For xlss, must first download JDK: https://www.oracle.com/technetwork/java/javase/downloads/jdk11-downloads-5066655.html
 
 
 library(phytools) 
@@ -268,7 +272,7 @@ run_eco <- function(pgls_function.out){
 
 ```{r Eco plot functions} 
 # Plot eco variable function
-eco_plots <- function(pgls_function.out, eco_var, run_eco.out){
+eco_plots <- function(pgls_function.out, eco_var, run_eco.out, figLabel=""){
     pgls_eco_sum <- run_eco.out$pgls_eco_summary
     response_var <- pgls_function.out$response_var
     data <- pgls_function.out$new_comp_data$data
@@ -276,28 +280,33 @@ eco_plots <- function(pgls_function.out, eco_var, run_eco.out){
     eco_x <-data[,paste(eco_var)] 
       slope <- as.numeric(pgls_eco_sum$coefficients[eco_var,1])
       p <- as.numeric(pgls_eco_sum$coefficients[eco_var,4])
-  # only add linear fit if significant
-  ifelse( p<=0.05, 
-          eco_plot <- ggplot(data, aes(y=brain, x=eco_x, fill=Clade, color=Clade, shape=Clade)) + 
-           geom_smooth(na.rm=F, inherit.aes=F, method="lm", alpha = .15, data=data, aes(y=brain, x=eco_x)) +  
-           geom_point(size=3) +  
-           xlab(paste(eco_var,sep="")) + ylab(paste(response_var,"res",sep="_")) +
-           #title=paste("slope=", round(slope,4), "; p= ", round(p,4)),
-           theme_classic() + 
-           theme(plot.title = element_text(hjust=0.5,size=8), legend.position="none") +
-           scale_shape_manual(values=shapes) + scale_color_manual(values=colors) + scale_fill_manual(values=colors), 
-         
-         eco_plot <- ggplot(data, aes(y=brain, x=eco_x, fill=Clade, color=Clade, shape=Clade)) + geom_point(size=3) +
-           xlab(paste(eco_var,sep="")) + ylab(paste(response_var,"res",sep="_")) + 
-           # title=paste("slope=", round(slope,4), "; p= ", round(p,4)), 
-           theme_classic() + 
-           theme(plot.title = element_text(hjust=0.5,size=8), legend.position="none") + 
-           scale_shape_manual(values=shapes) + scale_color_manual(values=colors) + scale_fill_manual(values=colors)
-         )
+      
+  #  Initialize plot
+  eco_plot <- ggplot(data, aes(y=brain, x=eco_x, fill=Clade, color=Clade, shape=Clade))  + 
+    theme_classic() + ggtitle(figLabel)
   
+  # Conditionally add regression line
+  if ( p<=0.05){ 
+    eco_plot <- eco_plot +  
+      geom_smooth(na.rm=F, inherit.aes=F, method="lm", alpha = .15, data=data, aes(y=brain, x=eco_x))
+  } 
+  # Conditionally add legend
+  if (eco_var == "Residual_HomeRange"){
+    eco_plot =  eco_plot + theme(legend.position=c(1.75, 0.35), legend.background = element_rect(fill="whitesmoke"),
+                                 plot.title = element_text(hjust= -.3))
+  } else{
+    eco_plot = eco_plot + theme( legend.position="none",
+                                 plot.title = element_text(hjust= -.3))
+  }    
+  # Add remaining featuress
+  eco_plot <- eco_plot + geom_point(size=3, alpha=.7) +  
+         xlab(paste(eco_var,sep="")) + ylab(paste(response_var,"res",sep="_")) +   
+         scale_shape_manual(values=shapes) + scale_color_manual(values=colors) + scale_fill_manual(values=colors) 
+
+ 
   #geom_abline(slope=SLOPE, intercept=INTERCEPT)
-    #assign(paste("eco_plot",paste(response_var,"res",sep="_"), "vs",eco_var,sep="."),eco_plot)
-      return(eco_plot %>% ggplotly())
+    #assign(paste("eco_plot",paste(response_var,"res",sep="_"), "vs",eco_var,sep="."),eco_plot) 
+      return(eco_plot) # %>% ggplotly()
   }
   
 # MAKE MORE FLEXIBLE (dependent on which model variables actually used)
@@ -305,26 +314,35 @@ all_eco_plots <- function(pgls_function.out){
   eco=run_eco(pgls_function.out)
   p_f.o <-pgls_function.out
   #e0 <- eco_plots(eco_var = "Nocturnality", run_eco.out=eco)
-  e1 <-eco_plots(p_f.o, eco_var = "DietBreadth", run_eco.out=eco)
+  e1 <-eco_plots(p_f.o, eco_var = "DietBreadth", run_eco.out=eco, figLabel="A")
   #e2 <-eco_plots(p_f.o, eco_var = "HomeRange_km2", run_eco.out=eco)
   #e3 <-eco_plots(p_f.o, eco_var = "HomeRange_Indiv_km2", run_eco.out=eco)
-  e4 <-eco_plots(p_f.o, eco_var = "PopulationDensity_n_km2", run_eco.out=eco)
+  e4 <-eco_plots(p_f.o, eco_var = "PopulationDensity_n_km2", run_eco.out=eco, figLabel="B")
   #e5 <-eco_plots(p_f.o, eco_var = "SocialGrpSize", run_eco.out=eco)
   #e6 <-eco_plots(p_f.o, eco_var = "ATWP_DR", run_eco.out=eco)
   #e7 <-eco_plots(p_f.o, eco_var = "ATWP_perForaging", run_eco.out=eco)
   #e8 <-eco_plots(p_f.o, eco_var = "ATWP_GroupSize", run_eco.out=eco)
   #e9 <-eco_plots(p_f.o, eco_var = "ATWP_HR", run_eco.out=eco)
   #e10 <-eco_plots(p_f.o, eco_var = "ATWP_perTravel", run_eco.out=eco)
-  e11 <-eco_plots(p_f.o, eco_var = "GroupSize_filled", run_eco.out=eco)
-  e12 <-eco_plots(p_f.o, eco_var = "Home_Range", run_eco.out=eco)
-  e13 <-eco_plots(p_f.o, eco_var = "Residual_HomeRange", run_eco.out=eco)
-  
-  title <- ggdraw() + draw_label(paste("Ecological Plots:",paste(pgls_function.out$response_var,"res",sep="_")),
-                                 fontface='bold') 
-  # gridExtra::grid.arrange(e1,e4,e11,e12,e13, ncol=3, 
-  #                         top=paste("Ecological Plots:",paste(pgls_function.out$response_var,"res",sep="_")) ) #e6,e7,e10
+  e11 <-eco_plots(p_f.o, eco_var = "GroupSize_filled", run_eco.out=eco, figLabel="C")
+  e12 <-eco_plots(p_f.o, eco_var = "Home_Range", run_eco.out=eco, figLabel="D")
+  e13 <-eco_plots(p_f.o, eco_var = "Residual_HomeRange", run_eco.out=eco, figLabel="E") 
+   
+  gridExtra::grid.arrange(e1,e4,e11,e12,e13, ncol=3, 
+                           top = textGrob(paste("Ecological Plots:",
+                                                paste(pgls_function.out$response_var,"res",sep="_")),
+                                          gp=gpar(fontsize=18)))
+                         #e6,e7,e10
     # mod_vars <- list(eco_vars=c("DietBreadth","PopulationDensity_n_km2","GroupSize_filled", "Home_Range", "Residual_HomeRange")) 
-  subplot(e1,e4,e11,e12,e13, nrows = 2)
+  # subplot(e1,e4,e11,e12,e13, nrows = 2, shareY=F, shareX=F, titleX = T, titleY=T, margin = 0.1) 
+
+  # fluidPage(
+  #   fluidRow( column(4, e1), column(4, e4), column(4, e11)),
+  #   fluidRow( column(4, e12), column(8, e13) )
+  # )
+
+   
+
   #plot_grid( plotlist = list(e1,e4,e11,e12,e13), labels = list()) 
 }
 ```
@@ -548,14 +566,14 @@ run_eco(Sub.HP_res); all_eco_plots(Sub.HP_res)
 ```{r Scaling diagnostic multiplots}
 grid.arrange(HP.Med_res$xy_plot, HP.Brain_res$xy_plot, HPres.Enceph_res$xy_plot,
              HPres.Brain_res$xy_plot, HR.body_res$xy_plot,
-             ncol = 3, top = textGrob("Scaling Diagnostics", gp=gpar(fontsize=20)))
+             ncol = 3, top = textGrob("Scaling Diagnostics", gp=gpar(fontsize=18)))
 ```
 
 ### EC & Fibers multiplots
 ```{r EC & Fibers multiplots}
 grid.arrange(EC.HP_res$xy_plot, EC.Med_res$xy_plot, EC.Brain_res$xy_plot,
              fibers.HP_res$xy_plot, fibers.Med_res$xy_plot, fibers.brain_res$xy_plot, 
-                 ncol=3, top=textGrob("EC & Fiber Regressions", gp=gpar(fontsize=20)))
+                 ncol=3, top=textGrob("EC & Fiber Regressions", gp=gpar(fontsize=18)))
 ```
 
 ### retroHP subfield multiplots
@@ -564,18 +582,16 @@ grid.arrange(DG.HP_res$xy_plot, FD.HP_res$xy_plot,
                  Hilus.HP_res$xy_plot, CA2.3.HP_res$xy_plot, 
                  CA3.HP_res$xy_plot, CA2.HP_res$xy_plot,
                  CA1.HP_res$xy_plot, Sub.HP_res$xy_plot, 
-                 ncol=4, top=textGrob("retroHP Subfield Regressions", gp=gpar(fontsize=20)))
+                 ncol=4, top=textGrob("retroHP Subfield Regressions", gp=gpar(fontsize=18)))
 ```
 
-
-## Summary stats
-
-### Subfield Proportions
+## Subfield Proportions {.tabset .tabset-fade .tabset-pills}
 
 Plot the volumetric proportions of each subregion of the hippocampal complex.
 
-```{r Subfield Proportions} 
+### Subfield Proportions
 
+```{r Subfield Proportions} 
 subregion_proportions <- function(HP_data, subregions){ 
   subfield_props <- HP_data %>% 
     subset(select=c("Clade", subregions)) %>%   
@@ -591,8 +607,14 @@ subregion_proportions <- function(HP_data, subregions){
     geom_bar(position = "fill", stat="identity") + labs(x="Clade", y="% Total Volume") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   bp %>% ggplotly()
-}
- 
+} 
+# Absolute
+subregion_proportions(HP$data, c("Sub", "CA1", "CA2", "CA3", "Hilus", "FD", "EC","Fibers")) 
+```
+
+### Residual Proportions 
+
+```{r Residual Proportions}
 residual_proportions <- function (HP_data, residuals){
   df <- HP_data %>%  subset(select=c("Clade", residuals)) %>% 
              group_by(Clade) %>% summarise_at(vars(-Clade), funs(mean(., na.rm=TRUE))) %>% 
@@ -602,15 +624,15 @@ residual_proportions <- function (HP_data, residuals){
     geom_bar(position = "fill", stat="identity") + labs(x="Clade", y="Subregion Residuals") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   bp %>% ggplotly()
-  }   
-
-# Absolute
-subregion_proportions(HP$data, c("Sub", "CA1", "CA2", "CA3", "Hilus", "FD", "EC","Fibers")) 
+}   
 
 # # Residuals
-# residual_proportions(HP$data, residuals=c("retroHP__Sub", "retroHP__CA1", "retroHP__CA2",
-#                                           "retroHP__CA3", "retroHP__Hil", "retroHP__FD") )
+residual_proportions(HP$data, residuals=c("retroHP__Sub", "retroHP__CA1", "retroHP__CA2",
+                                           "retroHP__CA3", "retroHP__Hil", "retroHP__FD") )
 ```
+
+
+## Summary stats
 
 ### PGLS: Neuroanatomy regression stats
 
@@ -654,7 +676,27 @@ neuro.summ$Sig <-  ifelse(neuro.summ$model.pval<0.05 & neuro.summ$model.pval>0.0
               ifelse(neuro.summ$model.pval<0.01 & neuro.summ$model.pval>alpha,"**", 
               ifelse(neuro.summ$model.pval<alpha,"***", "")))
 row.names(neuro.summ)<-NULL
-pander(neuro.summ, caption="Neuroanatomical PGLS Regressions Summary", style="simple")
+colnames(neuro.summ) <- c("Residual Name",  "Multiple R<sup>2<sup>","Adj. R<sup>2<sup>", 
+                          "F stat.", "λ", "Model p-value", "Sig.")
+
+createDT <- function(dt, caption, save=F, scrollY=700){
+  if (save!=F){ 
+    dir.create("./Tables", showWarnings=F)
+    write.csv(dt, file=file.path("Tables",paste(save,"csv",sep=".")), quote = F, row.names = F)  
+  }
+    datatable( dt, caption=caption,
+      extensions = 'Buttons', escape = F,
+      options = list( dom = 'Bfrtip', 
+                      buttons = c('copy', 'csv', 'excel', 'pdf', 'print'), 
+                      scrollY = scrollY
+
+    )
+  ) 
+  
+}
+
+createDT(neuro.summ, caption="Neuroanatomical PGLS Regressions Summary", save="neuro.results") 
+
 ```
 
 ### PGLS: HP-eco stats
@@ -700,8 +742,10 @@ eco.summ$Sig <-  ifelse(eco.summ$model.pval<0.05 & eco.summ$model.pval>0.01, "*"
               ifelse(eco.summ$model.pval<0.01 & eco.summ$model.pval>alpha,"**", 
               ifelse(eco.summ$model.pval<alpha,"***", "")))
 row.names(eco.summ)<-NULL
-pander(eco.summ,  caption="Ecological PGLS Regressions Summary", style="simple")
+colnames(eco.summ) <- c("Residual Name",  "Multiple R<sup>2<sup>","Adj. R<sup>2<sup>", 
+                          "F stat.", "λ", "Model p-value", "Sig.")
 
+createDT(eco.summ, caption="Ecological PGLS Regressions Summary", save = "eco.results")
 ```
 
 # Multidimensional plots
@@ -852,23 +896,32 @@ plot3d(phy.PCA$S[,1:3], col=as.numeric(as.factor(Clade)), size=1, type='s', main
 
 ## Hierarchical Clustering
 
-```{r Hierarchical Clustering}
-# Method 1: ggdendrogram
-hc <- hclust(dist(plot.alldata), "ave")
-ggdendrogram(hc, rotate=T) + labs(title="Multifactorial Cluster Dendrogram: \nResidual Hippocampal Subregions") + theme(plot.title = element_text(hjust = 0.5)) 
+```{r Hierarchical Clustering, fig.height=5}
+# # Method 1: ggdendrogram
+# hc <- hclust(dist(plot.alldata), "ave")
+# ggdendrogram(hc, rotate=T) + labs(title="Multifactorial Cluster Dendrogram: \nResidual Hippocampal Subregions") + theme(plot.title = element_text(hjust = 0.5)) 
 #+ geom_text(data=plot.data, aes(label=Clade, x=x, y=0, colour=Clade))
 
 
 # Heatmaps
 
+
 ## Default
 #heatmap( as.matrix(plot.alldata), main="Hierarchical Clustering Heatmap")
+#heatmap.2
+# heatmap.2(as.matrix(plot.alldata), srtCol=45) # ColSideColors=colz
 ## NMF
 #NMF::aheatmap(as.matrix(plot.alldata))
 ## Ape
-#phylo.heatmap(HP$phy, plot.alldata, standardize = T)
+phylo.heatmap(HP$phy, plot.alldata, standardize = T)
 
-heatmap.2(as.matrix(plot.alldata), srtCol=45) # ColSideColors=colz
+
+Spectral <- grDevices::colorRampPalette(RColorBrewer::brewer.pal( length(orderedClades), "Spectral"))
+heatmaply(plot.alldata, k_row = length(orderedClades), plot_method= "plotly", fontsize_row = 8, 
+          row_side_colors =  list(Clade=Clade), row_side_palette = Spectral, 
+          colorbar_xpos = 1.02,  key.title="Scaled Residuals") %>% 
+          colorbar( len = 0.3,  tickfont = list(size = 8), titlefont = list(size = 12), which = 2)  
+ 
 ```
 
 ## Principal Components: Trees
@@ -946,7 +999,8 @@ PCrun_eco <- function(comp_data, response_var){
 
 
 # Plot PC1-eco
-PCeco_plots <- function(eco_var, run_eco.out){
+PCeco_plots <- function(eco_var, run_eco.out, figLabel){
+  
     pgls_eco_summary <- run_eco.out$pgls_eco_summary
     response_var <- run_eco.out$response_var
     data <- run_eco.out$comp_data$data
@@ -954,43 +1008,49 @@ PCeco_plots <- function(eco_var, run_eco.out){
     eco_x <- data[,paste(eco_var)] 
       slope <- as.numeric(pgls_eco_summary$coefficients[eco_var,1])
       p <- as.numeric(pgls_eco_summary$coefficients[eco_var,4])
-      # title=paste("slope=", round(slope,4), "; p= ", round(p,4))
-# only add linear fit if significant
-ifelse(p<=0.05, 
-       eco_plot <- ggplot(data, aes(y=brain, x=eco_x, fill=Clade, color=Clade, shape=Clade)) + 
-         geom_smooth(inherit.aes=F, method="lm", color="black", data=data, aes(y=brain, x=eco_x)) + 
-         geom_point(size=3) + 
-         labs(y=paste(response_var,"res",sep="_"), x=paste(eco_var,sep="")) + 
-         theme_classic() + 
-         theme(plot.title = element_text(hjust=0.5,size=8), legend.position="none") +
-         scale_shape_manual(values=shapes) + scale_color_manual(values=colors) + scale_fill_manual(values=colors), 
-       
-       eco_plot <- ggplot(data, aes(y=brain, x=eco_x, fill=Clade, color=Clade, shape=Clade)) + 
-         geom_point(size=3) + 
-         labs(y=paste(response_var,"res",sep="_"), x=paste(eco_var,sep="")) + 
-         theme_classic() + 
-         theme(plot.title = element_text(hjust=0.5,size=8), legend.position="none") + 
-         scale_shape_manual(values=shapes) + scale_color_manual(values=colors) + scale_fill_manual(values=colors)
-       )
+      
+  #  Initialize plot
+  eco_plot <- ggplot(data, aes(y=brain, x=eco_x, fill=Clade, color=Clade, shape=Clade))  + 
+    theme_classic() + ggtitle(figLabel)
+  
+  # Conditionally add regression line
+  if ( p<=0.05){ 
+    eco_plot <- eco_plot +  
+      geom_smooth(na.rm=F, inherit.aes=F, method="lm", alpha = .15, data=data, aes(y=brain, x=eco_x))
+  } 
+  # Conditionally add legend
+  if (eco_var == "Residual_HomeRange"){
+    eco_plot =  eco_plot + theme(legend.position=c(1.75, 0.35), legend.background = element_rect(fill="whitesmoke"),
+                                 plot.title = element_text(hjust= -.3))
+  } else{
+    eco_plot = eco_plot + theme( legend.position="none",
+                                 plot.title = element_text(hjust= -.3))
+  }    
+  # Add remaining featuress
+  eco_plot <- eco_plot + geom_point(size=3, alpha=.7) +  
+         xlab(paste(eco_var,sep="")) + ylab(paste(response_var,"res",sep="_")) +   
+         scale_shape_manual(values=shapes) + scale_color_manual(values=colors) + scale_fill_manual(values=colors) 
 
-#geom_abline(slope=SLOPE, intercept=INTERCEPT)
-  #assign(paste("eco_plot",paste(response_var,"res",sep="_"), "vs",eco_var,sep="."),eco_plot)
-    return(eco_plot %>% ggplotly())
+ 
+  #geom_abline(slope=SLOPE, intercept=INTERCEPT)
+    #assign(paste("eco_plot",paste(response_var,"res",sep="_"), "vs",eco_var,sep="."),eco_plot) 
+      return(eco_plot) # %>% ggplotly()
   }
   
 # MAKE MORE FLEXIBLE (dependent on which model variables actually used)
 PCall_eco_plots <- function(comp_data, response_var){
   eco=PCrun_eco(comp_data, response_var)
-  e1 <-PCeco_plots(eco_var = "DietBreadth", run_eco.out=eco)
-  e4 <-PCeco_plots(eco_var = "PopulationDensity_n_km2", run_eco.out=eco)
-  e11 <-PCeco_plots(eco_var = "GroupSize_filled", run_eco.out=eco)
-  e12 <-PCeco_plots(eco_var = "Home_Range", run_eco.out=eco)
-  e13 <-PCeco_plots(eco_var = "Residual_HomeRange", run_eco.out=eco)
+  e1 <-PCeco_plots(eco_var = "DietBreadth", run_eco.out=eco, figLabel="A")
+  e4 <-PCeco_plots(eco_var = "PopulationDensity_n_km2", run_eco.out=eco, figLabel="B")
+  e11 <-PCeco_plots(eco_var = "GroupSize_filled", run_eco.out=eco, figLabel="C")
+  e12 <-PCeco_plots(eco_var = "Home_Range", run_eco.out=eco, figLabel="D")
+  e13 <-PCeco_plots(eco_var = "Residual_HomeRange", run_eco.out=eco, figLabel="E")
 
-  mod_vars <- list(eco_vars=c("DietBreadth","PopulationDensity_n_km2","GroupSize_filled", "Home_Range", "Residual_HomeRange"))
+  # mod_vars <- list(eco_vars=c("DietBreadth","PopulationDensity_n_km2","GroupSize_filled", "Home_Range", "Residual_HomeRange"))
   
-  # gridExtra::grid.arrange(e1,e4,e11,e12,e13, ncol=3, top=paste("Ecological Plots:",response_var ) )
-  subplot(e1,e4,e11,e12,e13, nrows = 2)
+  gridExtra::grid.arrange(e1,e4,e11,e12,e13, ncol=3, top=paste("Ecological Plots:",response_var ) )
+  # subplot(e1,e4,e11,e12,e13, nrows = 2, share=F, shareX=F, titleX = T, titleY=T)
+   
 }
 ```
 
@@ -1054,6 +1114,8 @@ corrplot.mixed(cor.phylo.matrix, order="original", addrect=3, tl.col="black",
                upper="square", lower="number", tl.pos="lt", diag="u", tl.srt=45)
 ```
 
+
+
 # Selective Regime Analysis
 
 ## l1ou Function
@@ -1064,169 +1126,146 @@ corrplot.mixed(cor.phylo.matrix, order="original", addrect=3, tl.col="black",
 # Parallelize to speed up
 # nCores <- parallel::detectCores()
 
-#install_github("khabbazian/l1ou")
-l1ou <- function(tree, dat, model="pBIC", nCores=nCores){
+#par(mar=c(1,1,1,1))
 
+#install_github("khabbazian/l1ou")
+l1ou <- function(tree, dat, model="pBIC"){ 
+  
+   # Shorten species names
+  abbrevSpecies <- function(spNames) { 
+    species <- lapply(strsplit(spNames, "_"), `[`, 2)
+    genusAbrv <- substr(spNames, 1, 1)
+    abrvNames <- paste(paste(genusAbrv,".",sep=""), species, sep="_") 
+    return(abrvNames)
+  }
+  rownames(dat) <- abbrevSpecies(rownames(dat))
+  tree$tip.label <- abbrevSpecies(tree$tip.label) 
+  
+  
   #Selective regime analysis
   ## Make species in tree and data the same order
   tree.dat <- adjust_data(tree, dat)
-  # Conduct main anaylsis
-  eModel <- estimate_shift_configuration(tree.dat$tree, tree.dat$Y)#, nCores = nCores
-  ## Compute the information criterion score for a given configuration
-  config_IC <- configuration_ic(tree.dat$tree, eModel$Y, eModel$shift.configuration,
-                                criterion=paste(model))
+  Y <- tree.dat$Y  
+  #  # Conduct main anaylsis
+  # ###  ***** Setting the nCores argument creates an error in the next step!
+  # eModel <- estimate_shift_configuration(tree.dat$tree, tree.dat$Y)#, nCores = nCores
+  # ## Compute the information criterion score for a given configuration
+  # config_IC <- configuration_ic(tree.dat$tree, eModel$Y, eModel$shift.configuration,
+  #                               criterion=paste(model))
+  # 
+  # 
   ## building l1ou object out of the second best score
-  eModel2 = configuration_ic(eModel$tree, eModel$Y, eModel$profile$configurations[[2]],
-                           fit.OU.model=TRUE, l1ou.options=eModel$l1ou.options)
-  eModel2_plot <- plot(eModel2, edge.width=3); eModel2_plot
+  # eModel2 = configuration_ic(eModel$tree, eModel$Y, eModel$profile$configurations[[2]],
+  # fit.OU.model=TRUE, l1ou.options=eModel$l1ou.options)
+  # eModel2_plot <- plot(eModel2, edge.width=3); eModel2_plot
+  
+    
+  
 #Convergence
-  Y <- tree.dat$Y
   ## first fit a model to find individual shifts (no convergence assumed):
-  fit_ind <- estimate_shift_configuration(tree, Y, criterion="AICc",nCores=4)
+  fit_ind <- estimate_shift_configuration(tree, Y, criterion="AICc", nCores=4)
   ## then detect which of these shifts are convergent:
   fit_conv <- estimate_convergent_regimes(fit_ind, criterion="AICc", nCores=4)
-  fitconv_plot <- plot(fit_conv, edge.width=3); fitconv_plot
   
-  output <- list(tree.dat=tree.dat, config_IC=config_IC, 
-                 eModel2=eModel2, eModel2_plot=eModel2_plot, 
+  # Plot
+  fitconv_plot <- plot(fit_conv, edge.width=3, edge.ann.cex = 1.1, edge.shift.adj = 1.1,  cex=1); 
+  fitconv_plot
+  
+  output <- list(tree.dat=tree.dat, #config_IC=config_IC, 
+                # eModel2=eModel2, eModel2_plot=eModel2_plot, 
                  fit_ind=fit_ind, fit_conv=fit_conv, fitconv_plot=fitconv_plot)
   return(output)
 }
 
-## Run l1ou 
+## Fix tree for l1ou
 tree <-force.ultrametric(HP$phy)
   is.ultrametric(tree)
 ```
 
-## Multivariate Analyses
+## l1ou: Multivariate Analyses {.tabset .tabset-fade .tabset-pills}
 
-```{r Multivariate Analyses, fig.height=9, fig.width=9}
+### l1ou :PCs 1-4
+
+```{r l1ou: PCs 1-4, fig.height=9, fig.width=9 } 
+#  
 # qPCs 1-4
-PCs1_4.pBIC <- l1ou(tree, dat=phy.PCA$S[,1:4], model="pBIC")
+PCs1_4.pBIC <- l1ou(tree, dat= phy.PCA$S[,1:4], model="pBIC")
+```
+
+### All Subregions
+
+```{r l1ou: All Subregions, fig.height=9, fig.width=9}
 # All non-composite subregions
 subs.pBIC <- l1ou(tree, dat=plot.data, model="pBIC")
 ```
 
-## Individual Subregions
+## Individual Subregions {.tabset .tabset-fade .tabset-pills}
 
-```{r Individual Subregions, fig.height=9, fig.width=9}
-# retroHP_res only
+### l1ou: HPres 
+
+```{r l1ou: HPres, fig.height=9, fig.width=9 }
+# fig.height=9, fig.width=9 
 HPres.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,retroHP_res), model="pBIC")
-# Individual subregions
+```
+
+### l1ou: EC_res 
+
+```{r l1ou: EC_res, fig.height=9, fig.width=9}
+# fig.height=9, fig.width=9 
 EC.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,EC_res), model="pBIC")
+```
+
+### l1ou: Fibers_res 
+
+```{r l1ou: Fibers_res, fig.height=9, fig.width=9}
+# fig.height=9, fig.width=9 
 Fibers.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,Fibers_res), model="pBIC")
+```
+
+### l1ou: DG/FD/Hilus_res 
+
+```{r l1ou: DG/FD/Hilus_res, fig.height=9, fig.width=9}
+# fig.height=9, fig.width=9 
 DG.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,DG_res), model="pBIC")
-  FD.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,FD_res), model="pBIC")
-  Hilus.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,Hilus_res), model="pBIC")
+
+FD.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,FD_res), model="pBIC")
+Hilus.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,Hilus_res), model="pBIC")
+```
+
+### l1ou: CA2.3/2/3_res 
+
+```{r l1ou: CA2.3/2/3_res, fig.height=9, fig.width=9}
+# Individual subregions
 CA2.3.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,CA2.3_res), model="pBIC")
   CA3.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,CA3_res), model="pBIC")
   CA2.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,CA2_res), model="pBIC")
-CA1.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,CA1_res), model="pBIC")
-Sub.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,Sub_res), model="pBIC")
+```
 
-# Home range
+### l1ou: CA1_res 
+
+```{r l1ou: CA1_res, fig.height=9, fig.width=9}
+CA1.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,CA1_res), model="pBIC")
+```
+
+### l1ou: Sub_res 
+
+```{r l1ou: Sub_res, fig.height=9, fig.width=9}
+Sub.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,Sub_res), model="pBIC")
+```
+
+### l1ou: Ecological Variables
+
+```{r l1ou: Ecological Variables, fig.height=9, fig.width=9} 
 HR.pBIC <- l1ou(tree, dat=dplyr::select(HP$data, Home_Range), model="pBIC")
 HRres.pBIC <- l1ou(tree, dat=dplyr::select(HP$data, Home_Range_res), model="pBIC")
 Group.pBIC <- l1ou(tree, dat=dplyr::select(HP$data, GroupSize_filled), model="pBIC")
-
 ```
 
+
+# Tests
  
+## Node ages
 
-# pANCOVA
-
-```{r pANCOVA, eval=F, include=F}
-#library(devtools)   
-#install_github("JeroenSmaers/evomap") #Needs to be installed only once
-pANCOVA(phy, data, response_var, predictor_var){
-library(ape)
-library(geiger)
-library(phytools)
-library(nlme)
-library(evomap)
-
-setwd("/Users/schilder/Desktop/Dissertation/HPeco/pANCOVA/") #Set your working directory to the folder to which you've downloaded the files. 
-###############
-#Load data and tree
-      tree<-HP$phy
-      data<-HP$data
-      plot(tree, show.node.label=T)
-###############
-#Run pgls
-      #BM model
-      model_pgls<-gls(retroHP~Brain__HP, data, corBrownian(phy=tree))
-      model_pgls_summ <- summary(model_pgls); model_pgls_summ
-      #Plot regression lines
-      plot(log(data$retroHP) ~ log(data$Brain__HP)); abline(model_pgls)
-###############
-#Confidence and prediction intervals
-      Y<-data$retroHP
-      X<-data$Brain__HP
-      #vcv of the tree
-      Sigma<-vcv(tree)
-      #ci
-      model_ci<-gls.ci(Y,X,Sigma)
-      model_ci$model
-            lines(model_ci$CI.plot$X,model_ci$CI.plot$Lower2.5,lty=2)
-            lines(model_ci$CI.plot$X,model_ci$CI.plot$Upper2.5,lty=2)
-      #pi
-      k<-1
-      model_pi<-gls.pi(Y,X,Sigma,k)
-      model_pi$model
-            lines(model_pi$PI.plot$X,model_pi$PI.plot$Lower2.5,lty=3)
-            lines(model_pi$PI.plot$X,model_pi$PI.plot$Upper2.5,lty=3)
-
-###############
-#Phylogenetic ancova
-#groupings
-      Human<-which(rownames(data)=="Homo_sapiens")
-      GreatApes<-getTips(tree,findMRCA(tree,c("Homo_sapiens","Pan_troglodytes_verus","Gorilla_gorilla_gorilla")))
-          GreatApes<-setdiff(GreatApes,Human)
-
-###############
-#Load the functions
-      source("ancova_functions.r")
-
-#2 groups
-      #Set groups
-            Groups<-rep("B",length(rownames(data)))
-            Groups[c(Human,GreatApes)]<-"A"
-            Groups<-as.factor(Groups)
-      #Check groups
-            tipCol<-rep("blue",length(tree$tip.label))
-            tipCol[which(Groups=="A")]<-"red"
-            plot(tree,tip.col=tipCol,cex=0.6)
-            plot(Y~X,pch=21,bg=tipCol)
-            abline(model_pgls)
-      #Run ancova
-            #Only 2 groups accepted for difference in slopes
-            gls.ancova.defaultModels(Y,X,Sigma,Groups,test="Slopes")   
-            #Maximum of 3 groups accepted for difference in intercepts
-            gls.ancova.defaultModels(Y,X,Sigma,Groups,test="Intercepts")    
-
-#3 groups
-      #Set groups
-            Groups<-rep("C",length(rownames(data)))
-            Groups[Human]<-"A"
-            Groups[GreatApes]<-"B"
-            Groups<-as.factor(Groups)
-      #Check groups
-            tipCol<-rep("blue",length(tree$tip.label))
-            tipCol[which(Groups=="A")]<-"red"
-            tipCol[which(Groups=="B")]<-"green"
-            plot(tree,tip.col=tipCol,cex=0.6)
-            plot(Y~X,pch=21,bg=tipCol)
-            abline(model_pgls)
-      #Run ancova
-            #Maximum of 3 groups accepted for diference in intercepts
-            gls.ancova.defaultModels(Y,X,Sigma,Groups,test="Intercepts")     
-output <- list(X=X, Y=Y, model_pgls_summ=model_pgls_summ)
-            
-            }
-
-```
-
-# Node ages
 ```{r Node ages, eval=F}
 t <- tree
 plot(t)
@@ -1248,8 +1287,9 @@ plotTree.wBars(t)
 write.nexus(tree,file="primate_tree.nex")
 ```
 
-# Draw HC Network
-```{r Draw HC Network,warning=F,message=F}
+## Draw HC Network
+
+```{r Draw HC Network, eval=F}
 species <- "Homo_sapiens"
 
 
@@ -1299,7 +1339,8 @@ plot(net, vertex.shape="circle",vertex.label.dist=2, vertex.size= V(net)$Size,
 
 ```
 
-## Interactive Plots
+### Interactive Plots
+
 ```{r Interactive Plots, eval=F}
 tkid <- tkplot(net) #tkid is the id of the tkplot that will open
 l <- tkplot.getcoords(tkid) # grab the coordinates from tkplot
@@ -1325,6 +1366,15 @@ nodes$color.highlight.border <- "darkred"
 visNetwork(nodes, links)
 
 ```
+
+
+# Save Results
+
+Save the updated data in a new table
+```{r Save Results}  
+createDT(HP$data, caption = "Complete Data",save = "HP_eco_full_results", scrollY = F)
+```
+
 
 
 
