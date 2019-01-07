@@ -7,22 +7,24 @@ author: |
   | Icahn School of Medicine at Mount Sinai
   | NYC, New York
 date: "4/29/2017"
-output: 
+output:
   rmarkdown::html_document: 
     theme: yeti
-    highlight: tango 
+    highlight: zenburn
     code_folding: show 
     toc: true 
     toc_float: true
     smooth_scroll: true
     number_sections: false  
+editor_options: 
+  chunk_output_type: console
 ---
 
 # Setup
 
 Read comments in the setup section below for directions on install additional dependencies.
 
-```{r setup, warning=F, message=F, include=T}
+```{r setup, warning=F, message=F, include=T, dpi = 600}
 library(readxl)
 library(dplyr)  
 library(pander) 
@@ -56,6 +58,9 @@ library(knitr)
 library(rgl) # Macs need to download X11 first. Link here: http://xquartz.macosforge.org/trac/wiki
 knitr::knit_hooks$set(webgl = hook_webgl)
 knitr::opts_chunk$set(echo=T, warning=F, message=F)
+
+thm <- knitr::knit_theme$get("solarized-dark")
+knitr::knit_theme$set(thm)
 
 sessionInfo()
 ```
@@ -894,14 +899,25 @@ plot3d(phy.PCA$S[,1:3], col=as.numeric(as.factor(Clade)), size=1, type='s', main
   #legend3d("topright", legend=unique(Clade), col=c("blue","turquoise","green","black","red","magenta"))
 ```
 
-## Hierarchical Clustering
+## Hierarchical Clustering + Heatmap {.tabset .tabset-fade .tabset-pills}
 
-```{r Hierarchical Clustering, fig.height=5}
+### Heatmaply
+
+```{r Heatmaply, out.width="120%"}
+Spectral <- grDevices::colorRampPalette(RColorBrewer::brewer.pal( length(orderedClades), "Spectral"))
+heatmaply(plot.alldata, k_row = length(orderedClades), plot_method= "plotly", fontsize_row = 8, 
+          row_side_colors =  list(Clade=Clade), row_side_palette = Spectral, 
+          colorbar_xpos = 1.02,  key.title="Scaled Residuals") %>% 
+          colorbar( len = 0.3,  tickfont = list(size = 8), titlefont = list(size = 12), which = 2)  
+```
+
+### Phylo.heatmap
+
+```{r Phylo.heatmap, fig.height=7, fig.width=9.8}
 # # Method 1: ggdendrogram
 # hc <- hclust(dist(plot.alldata), "ave")
 # ggdendrogram(hc, rotate=T) + labs(title="Multifactorial Cluster Dendrogram: \nResidual Hippocampal Subregions") + theme(plot.title = element_text(hjust = 0.5)) 
 #+ geom_text(data=plot.data, aes(label=Clade, x=x, y=0, colour=Clade))
-
 
 # Heatmaps
 
@@ -913,19 +929,14 @@ plot3d(phy.PCA$S[,1:3], col=as.numeric(as.factor(Clade)), size=1, type='s', main
 ## NMF
 #NMF::aheatmap(as.matrix(plot.alldata))
 ## Ape
-phylo.heatmap(HP$phy, plot.alldata, standardize = T)
-
-
-Spectral <- grDevices::colorRampPalette(RColorBrewer::brewer.pal( length(orderedClades), "Spectral"))
-heatmaply(plot.alldata, k_row = length(orderedClades), plot_method= "plotly", fontsize_row = 8, 
-          row_side_colors =  list(Clade=Clade), row_side_palette = Spectral, 
-          colorbar_xpos = 1.02,  key.title="Scaled Residuals") %>% 
-          colorbar( len = 0.3,  tickfont = list(size = 8), titlefont = list(size = 12), which = 2)  
+phylo.heatmap(HP$phy, plot.alldata, standardize = T) 
  
 ```
 
 ## Principal Components: Trees
+
 ### PC1 ContMap
+
 ```{r PC1 ContMap}
 phy.PC1 <- phy.PCA$S[,1]
 res_phylo_plot <- contMap(HP$phy, phy.PC1, type="phylogram", plot=FALSE)
@@ -1125,21 +1136,22 @@ corrplot.mixed(cor.phylo.matrix, order="original", addrect=3, tl.col="black",
 ```{r l1ou Function}
 # Parallelize to speed up
 # nCores <- parallel::detectCores()
-
-#par(mar=c(1,1,1,1))
+#  ?l1ou:::plot.l1ou
 
 #install_github("khabbazian/l1ou")
-l1ou <- function(tree, dat, model="pBIC"){ 
-  
-   # Shorten species names
-  abbrevSpecies <- function(spNames) { 
-    species <- lapply(strsplit(spNames, "_"), `[`, 2)
-    genusAbrv <- substr(spNames, 1, 1)
-    abrvNames <- paste(paste(genusAbrv,".",sep=""), species, sep="_") 
-    return(abrvNames)
+l1ou <- function(tree, dat, model="pBIC", abbrev_species=F, multi=F){ 
+ 
+  # Shorten species names
+  if (abbrev_species==T){
+    abbrevSpecies <- function(spNames) { 
+      species <- lapply(strsplit(spNames, "_"), `[`, 2)
+      genusAbrv <- substr(spNames, 1, 1)
+      abrvNames <- paste(paste(genusAbrv,".",sep=""), species, sep="_") 
+      return(abrvNames)
+    }
+    rownames(dat) <- abbrevSpecies(rownames(dat))
+    tree$tip.label <- abbrevSpecies(tree$tip.label) 
   }
-  rownames(dat) <- abbrevSpecies(rownames(dat))
-  tree$tip.label <- abbrevSpecies(tree$tip.label) 
   
   
   #Selective regime analysis
@@ -1167,9 +1179,18 @@ l1ou <- function(tree, dat, model="pBIC"){
   ## then detect which of these shifts are convergent:
   fit_conv <- estimate_convergent_regimes(fit_ind, criterion="AICc", nCores=4)
   
-  # Plot
-  fitconv_plot <- plot(fit_conv, edge.width=3, edge.ann.cex = 1.1, edge.shift.adj = 1.1,  cex=1); 
+  # Plot 
+  #par(mar=c(2,2,2,2))
+  if (multi==F){ 
+    fitconv_plot <- l1ou:::plot.l1ou(model = fit_conv, edge.width=3, edge.ann.cex = 1.1, edge.shift.adj = 1.2) 
+  } else {
+    fitconv_plot <- l1ou:::plot.l1ou(model = fit_conv, cex=1, edge.width=3,
+                                      edge.ann.cex = 1.1, edge.shift.adj = 1.2, label.offset=0.02)  
+  } 
+
+  # edge.label.pos = 1,  x.lim=c(15,1) 
   fitconv_plot
+  
   
   output <- list(tree.dat=tree.dat, #config_IC=config_IC, 
                 # eModel2=eModel2, eModel2_plot=eModel2_plot, 
@@ -1186,25 +1207,27 @@ tree <-force.ultrametric(HP$phy)
 
 ### l1ou :PCs 1-4
 
-```{r l1ou: PCs 1-4, fig.height=9, fig.width=9 } 
-#  
-# qPCs 1-4
-PCs1_4.pBIC <- l1ou(tree, dat= phy.PCA$S[,1:4], model="pBIC")
+```{r l1ou: PCs 1-4, fig.height=9, fig.width=9} 
+pcDF <- phy.PCA$S[,1:4]
+colnames(pcDF) <- paste("p",colnames(pcDF), sep="")
+
+PCs1_4.pBIC <- l1ou(tree, dat=pcDF, model="pBIC", multi=T)
 ```
 
 ### All Subregions
 
 ```{r l1ou: All Subregions, fig.height=9, fig.width=9}
 # All non-composite subregions
-subs.pBIC <- l1ou(tree, dat=plot.data, model="pBIC")
+subs.pBIC <- l1ou(tree, dat=plot.data, model="pBIC", multi=T)
 ```
 
 ## Individual Subregions {.tabset .tabset-fade .tabset-pills}
 
 ### l1ou: HPres 
 
-```{r l1ou: HPres, fig.height=9, fig.width=9 }
-# fig.height=9, fig.width=9 
+```{r l1ou: HPres, fig.height=9, fig.width=9}
+#out.extra='style="margin: 200px"'
+# fig.height=9, fig.width=9
 HPres.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,retroHP_res), model="pBIC")
 ```
 
