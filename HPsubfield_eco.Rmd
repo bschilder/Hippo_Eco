@@ -25,6 +25,7 @@ editor_options:
 Read comments in the setup section below for directions on install additional dependencies.
 
 ```{r setup, warning=F, message=F, include=T, dpi = 600}
+# setwd("Desktop/Hippo_Eco/")
 library(readxl)
 library(dplyr)  
 library(pander) 
@@ -43,12 +44,18 @@ library(grid)
 library(cowplot)
 library(plotly)
 library(heatmaply)
-#library(xlss) # For xlss, must first download JDK: https://www.oracle.com/technetwork/java/javase/downloads/jdk11-downloads-5066655.html
 
+# library(xlss) # For xlss, must first download JDK: https://www.oracle.com/technetwork/java/javase/downloads/jdk11-downloads-5066655.html
+library(tidyverse)
+library(ggtree)
+library(ggimage)
+library(ggstance)
+# BiocManager::install("ggtree")
 
 library(phytools) 
 library(caper)
 library(ape) 
+library(dispRity)
 # install.packages("https://cran.r-project.org/src/contrib/Archive/genlasso/genlasso_1.3.tar.gz", repos=NULL, method="libcurl")
 # devtools::install_github("khabbazian/l1ou")
 library(l1ou)
@@ -163,7 +170,8 @@ tree10K <- read.nexus(file = "Data/Phylo/10k_Primates.nex")
 # Create comparative.data
 HP <- comparative.data(phy=tree10K, data=HP_orig, names.col=Species_10K, 
                         vcv=T, na.omit=F, warn.dropped=T)
-
+# Put Species_10K back as col too
+HP$data["Species_10K"] <- row.names(HP$data)
 ```
 
 # Create Functions
@@ -371,13 +379,12 @@ HP$data$Residual_HomeRange <- HR.body_res$residuals
 
 ```{r retroHP vs. Total Brain Vol}
 # HP vs. Brain
-HP.Brain_res <- pgls_function(HP, "retroHP", "Brain__HP")
+HP.Brain_res <- pgls_function(HP, "retroHP", "Brain__HP") 
 run_eco(HP.Brain_res);  all_eco_plots(HP.Brain_res)
 ```
 
-### retroHP vs. Medulla * * *
+### __***retroHP vs. Medulla***__
 
-Result: No relationship
 ```{r retroHP vs. Medulla}
 # HP vs. Medulla
 HP.Med_res <- pgls_function(HP, "retroHP", "Medulla")
@@ -569,9 +576,21 @@ run_eco(Sub.HP_res); all_eco_plots(Sub.HP_res)
 ## All neuroanatomical regression plots
 ### Scaling diagnostic multiplots
 ```{r Scaling diagnostic multiplots}
-grid.arrange(HP.Med_res$xy_plot, HP.Brain_res$xy_plot, HPres.Enceph_res$xy_plot,
-             HPres.Brain_res$xy_plot, HR.body_res$xy_plot,
-             ncol = 3, top = textGrob("Scaling Diagnostics", gp=gpar(fontsize=18)))
+grid.arrange(HP.Med_res$xy_plot + ggtitle("A") + 
+               theme(plot.title = element_text(hjust= -.13, size = 18)), 
+             HP.Brain_res$xy_plot+ ggtitle("B") + 
+               theme(plot.title = element_text(hjust= -.13, size = 18)), 
+             HPres.Enceph_res$xy_plot + ggtitle("C") + 
+               theme(plot.title = element_text(hjust= -.13, size = 18)),
+             HPres.Brain_res$xy_plot + ggtitle("D") + 
+               theme(plot.title = element_text(hjust= -.13, size = 18)), 
+             HR.body_res$xy_plot + ggtitle("E") +
+                theme(legend.position=c(1.3, 0.35), legend.background = element_rect(fill="whitesmoke"),
+                      plot.title = element_text(hjust= -.13, size = 18)),
+             ncol = 3, 
+             top = textGrob("Scaling Diagnostics", gp=gpar(fontsize=18)))
+
+HR.body_res$pgls_summary
 ```
 
 ### EC & Fibers multiplots
@@ -693,7 +712,7 @@ createDT <- function(dt, caption, save=F, scrollY=700){
       extensions = 'Buttons', escape = F,
       options = list( dom = 'Bfrtip', 
                       buttons = c('copy', 'csv', 'excel', 'pdf', 'print'), 
-                      scrollY = scrollY
+                      scrollY = scrollY, paging = F
 
     )
   ) 
@@ -1142,13 +1161,13 @@ corrplot.mixed(cor.phylo.matrix, order="original", addrect=3, tl.col="black",
 l1ou <- function(tree, dat, model="pBIC", abbrev_species=F, multi=F){ 
  
   # Shorten species names
-  if (abbrev_species==T){
-    abbrevSpecies <- function(spNames) { 
+   abbrevSpecies <- function(spNames) { 
       species <- lapply(strsplit(spNames, "_"), `[`, 2)
       genusAbrv <- substr(spNames, 1, 1)
       abrvNames <- paste(paste(genusAbrv,".",sep=""), species, sep="_") 
       return(abrvNames)
     }
+  if (abbrev_species==T){ 
     rownames(dat) <- abbrevSpecies(rownames(dat))
     tree$tip.label <- abbrevSpecies(tree$tip.label) 
   }
@@ -1182,10 +1201,10 @@ l1ou <- function(tree, dat, model="pBIC", abbrev_species=F, multi=F){
   # Plot 
   #par(mar=c(2,2,2,2))
   if (multi==F){ 
-    fitconv_plot <- l1ou:::plot.l1ou(model = fit_conv, edge.width=3, edge.ann.cex = 1.1, edge.shift.adj = 1.2) 
-  } else {
-    fitconv_plot <- l1ou:::plot.l1ou(model = fit_conv, cex=1, edge.width=3,
-                                      edge.ann.cex = 1.1, edge.shift.adj = 1.2, label.offset=0.02)  
+    fitconv_plot <- l1ou:::plot.l1ou(model = fit_conv, edge.width=3) 
+  } else {  
+    fitconv_plot <- l1ou:::plot.l1ou(model = fit_conv, cex=1.1,  edge.width=3,
+                                      edge.ann.cex = 1.1, edge.shift.adj = 1.25, label.offset=0.02)
   } 
 
   # edge.label.pos = 1,  x.lim=c(15,1) 
@@ -1211,7 +1230,7 @@ tree <-force.ultrametric(HP$phy)
 pcDF <- phy.PCA$S[,1:4]
 colnames(pcDF) <- paste("p",colnames(pcDF), sep="")
 
-PCs1_4.pBIC <- l1ou(tree, dat=pcDF, model="pBIC", multi=T)
+PCs1_4.pBIC <- l1ou(tree, dat=pcDF, model="pBIC", multi=T, abbrev_species = T)
 ```
 
 ### All Subregions
@@ -1287,27 +1306,244 @@ Group.pBIC <- l1ou(tree, dat=dplyr::select(HP$data, GroupSize_filled), model="pB
 
 # Tests
  
-## Node ages
+## Estimate Node Ages
 
-```{r Node ages, eval=F}
-t <- tree
-plot(t)
+```{r Primate Evolution Plot}   
+# load("Data/HippoEco_AllResults.RData")
+row.names(HP_orig) <- HP_orig$Species_10K
+HP_merge <- merge(HP_orig, HP$data, all = T)
 
-node.nums <- cbind(t$tip.label, t$node.label)
-nodes <- round(heights(t)$start,2) #node.height()
-names(nodes) <- nodes
-tr <- makeNodeLabel(t, method = "user", nodeList = nodes)
-plot(tr, show.node.label = T)
+HPmed_res <- HP.Med_res$sort_res
+row.names(HPmed_res) <- HPmed_res$species
+
+# data.frame(sort(tree$tip.label)) 
+dev.off()# Reset graphics state
+
+# Get key node IDs
+homo <- 31 #MRCA(tree, tip=c("Homo_sapiens", "Homo_sapiens"))
+apes <- MRCA(tree, tip=c("Hylobates_lar", "Homo_sapiens"))
+OWM <- MRCA(tree, tip=c("Pygathrix_nemaeus", "Cercopithecus_mitis"))
+NWM <-  MRCA(tree, tip=c("Callicebus_moloch", "Alouatta_caraya"))
+tarsi <- 44 #MRCA(tree, tip=c("Tarsius_bancanus", "Tarsius_bancanus"))
+strep <-  MRCA(tree, tip=c("Galagoides_demidoff", "Microcebus_murinus"))
+primates <- MRCA(tree, tip=c("Indri_indri", "Homo_sapiens"))
+haplorrhines <- MRCA(tree, tip=c("Tarsius_bancanus", "Homo_sapiens"))
+anthropoids <- MRCA(tree, tip=c("Callithrix_jacchus", "Homo_sapiens"))
+catarrhines <- MRCA(tree, tip=c("Papio_anubis", "Homo_sapiens"))
+Pan_Homo <- MRCA(tree, tip=c("Pan_troglodytes_verus", "Homo_sapiens"))
+
+# Calculate the ages of all the nodes
+tree <- HP$phy
+node.ages <- tree.age(tree, 65, order = "past", fossil = F, digits = 1)
+node.ages$ages[node.ages$ages == 0] <- ""
+
+# Make shifts timeline
+up <- sprintf('\u2191')
+dn <- sprintf('\u2193') 
+CladeShifts <- c("Conserved Ancestral State", 
+                         "Haplorrhine Shifts",
+                         "Anthropoid Shifts", 
+                         "Catarrhine Shifts", 
+                         "Pan-Homo Shifts", 
+                         "Homo Shifts")
+shiftDF <- data.frame(Clade=factor(CladeShifts, levels=CladeShifts, ordered=T),
+           Events=c("SCZ, Fibers, FD, CA3, CA1", 
+                    paste(dn,"retroHP_res\n",up,"CA2_res"),
+                    paste(up,"Hilus_res"),
+                    paste(dn,"CA2_res"),
+                    paste(up,"Sub_res"),
+                    paste(up,"retroHP_res\n",dn,"Hilus_res")
+                    ), 
+           Dates=c(65, 61.3, 41.7, 26.7, 5.5, .2), 
+           Nodes=c(primates, 
+                   haplorrhines, 
+                   anthropoids, 
+                   catarrhines, 
+                   Pan_Homo, 
+                   homo)
+           )
+
+add_shift_boxes <- function(gt, shiftDF){
+  library(grid)
+  gb <- gt
+  for (node in shiftDF$Nodes){
+    print(node) 
+    nodeSub <- shiftDF[shiftDF$Nodes==node,] 
+    age_reverse <-  65-nodeSub$Dates
+    gb <- gb +
+      geom_vline(xintercept=age_reverse, color = "black", size=5, alpha=.2, show.legend = T)  +
+      # annotate("rect", xmin = age-5, xmax=age+5,ymax=44, ymin = -10, alpha = .2) +
+      annotate("label", x =age_reverse, y = -5, fill="black", alpha=.8, color="white",
+               label = paste(paste("[",nodeSub$Clade,"]"),
+                       nodeSub$Events,
+                       paste(nodeSub$Dates,"MYA"),
+               sep="\n")
+               # label = paste('atop(bold("',nodeSub$Clade,'"),"\n', nodeSub$Events, paste("\n",nodeSub$Dates,"MYA"),'")', sep=""), parse=T 
+               )  
+  } 
+  print(gb)
+  return(gb)
+}
 
 
-plot.phylo(t, show.node.label = F)
-nodelabels(round(heights(t)$start,2))
-
-plotTree.wBars(t)
 
 
-# Export as nexus and then open in FigTree to get node ages
-write.nexus(tree,file="primate_tree.nex")
+## **** Subregional proportions ****
+
+make_subfield_df <- function(HP_merge, subregion_names, gt){
+  subfield_df <-  HP_merge %>% #HP$data
+    subset(select=c("Species_10K", subregion_names)) %>%
+    reshape2::melt(id.vars = c("Species_10K"), variable.name = "Subregion", value.name = "Volume") %>%
+    rename(label = Species_10K) %>% mutate(label = as.factor(label), Subregion = as.factor(Subregion))
+  
+    # Get current order of tips
+  dtData <- gt$data %>% arrange(desc(y)) %>% subset(label %in% subfield_df$label) %>% 
+    mutate(order = factor(1:length(label), levels = 1:length(label), ordered = T)) %>%
+    subset(select=c("label", "order"))
+  
+  subfield_df_ord <- merge(subfield_df, dtData, by = "label") %>% arrange(order) %>% 
+    mutate(label = factor(label, levels = dtData$label, ordered = T), label = factor(label, levels = dtData$label, ordered = T) )
+  return(subfield_df_ord)
+}
+# Absolute vol
+subregions <-subregion_names <- c("Sub", "CA1", "CA2", "CA3", "Hilus", "FD", "EC","Fibers")
+volumes_df <-make_subfield_df(HP_merge, subregions, gt)
+# Residuals
+residuals <- paste(subregions, "res", sep="_")
+residuals_df <- make_subfield_df(HP_merge, residuals, gt) 
+
+HP_proportions <- group_by(volumes_df, label) %>% 
+  mutate(Proportion = Volume/sum(Volume), Total_Vol=sum(Volume)) %>%  
+  data.frame()
+head(HP_proportions) 
+
+panel_proportions <- function(gb, resize=0.5){
+  library(gtable)
+  gt = ggplot_gtable(ggplot_build(gb))
+  gtable_show_layout(gt) # will show you the layout - very handy function
+  gt # see plot layout in table format
+  # PANEL 2 
+  key <- gt$layout$l[grep("panel-2", gt$layout$name)] # you want to find the column specific to panel-2
+  gt$widths[key] = resize*gt$widths[key] # in this case it was colmun 7 - reduce the width by a half 
+   # PANEL 3 
+  key <- gt$layout$l[grep("panel-3", gt$layout$name)]  
+  gt$widths[key] = resize*gt$widths[key] 
+  grid.draw(gt) # plot with grid draw
+  return(gt) 
+}
+
+## ***** Add Silhouettes *****
+
+shiftNodes <- c(apes, OWM, NWM, tarsi, strep, primates)
+pBase <- "http://phylopic.org/assets/images/submissions/"
+image_info <- data.frame(node = shiftNodes,
+                images = paste(pBase, c("0174801d-15a6-4668-bfe0-4c421fbe51e8", # Gibbon
+                          "72f2f854-f3cd-4666-887c-35d5c256ab0f", # Baboon
+                          "aceb287d-84cf-46f1-868c-4797c4ac54a8", # Spider monkey
+                          "f598fb39-facf-43ea-a576-1861304b2fe4", # Tarsier
+                          "d6cfb28f-136e-4a20-a5ac-8eb353c7fc4a", # Ring-tailed lemur
+                          "b6ff5568-0712-4b15-a1fd-22b289af904d" # Plesiadapiforme
+                          ), ".512.png", sep=""),
+                species = c("Apes", "OWM", "NWM",
+                            "Tarsiiformes", "Strepsirrhines", "Plesiadapiforme"
+                            )
+                )
+image_homo <- data.frame(node=homo, 
+                         images=paste(pBase,"41b127f6-0824-4594-a941-5ff571f32378",".512.png",sep="" ),
+                         species="Homo")
+# phylopic_info <- data.frame(node = c(apes, OWM, NWM, tarsi, strep),
+#                             phylopic = c("0174801d-15a6-4668-bfe0-4c421fbe51e8", # Gibbon
+#                                         "72f2f854-f3cd-4666-887c-35d5c256ab0f", # Baboon
+#                                         "aceb287d-84cf-46f1-868c-4797c4ac54a8", # Spider monkey
+#                                         "f598fb39-facf-43ea-a576-1861304b2fe4", # 
+#                                         "bac25f49-97a4-4aec-beb6-f542158ebd23"
+#                                         ),
+#                             species = c("Apes", "OWM", "NWM",
+#                                         "Tarsiiformes", "Strepsirrhines"
+#                                         ))
+
+
+#### Make ggtree #########
+angle = -90
+offset = 22
+offset.text = 4
+alpha = .4
+fntSize = 2.2 
+
+gt <- ggtree(tree) + xlim_tree(-80)+  #  aes(color=group, linetype=group)
+  geom_cladelabel(node=apes, label="Apes",color="red2", extend = .5, barsize = 3, #, geom='label'
+                  offset=offset, angle=angle, offset.text = offset.text, hjust = .5, alpha=alpha+.2) +
+  geom_hilight(node=apes, fill="red2", alpha=alpha) + 
+  geom_cladelabel(node=OWM, label="OWM", color="orange", extend = .5, barsize = 3, 
+                  offset=offset, angle=angle, offset.text = offset.text, hjust = .5, alpha=alpha+.2) +
+  geom_hilight(node=OWM, fill="orange", alpha=alpha) + 
+  geom_cladelabel(node=NWM, label="NWM", color="green", extend = .5, barsize = 3,
+                  offset=offset, angle=angle,  offset.text = offset.text, hjust = .5, alpha=alpha+.2) +
+  geom_hilight(node=NWM, fill="green", alpha=alpha) + 
+  geom_cladelabel(node=tarsi, label="Tarsii-\nformes", color="blue",  extend = .5, barsize = 3,
+                  offset=offset, angle=angle,  offset.text = offset.text, hjust = .5, alpha=alpha+.2) +
+  geom_hilight(node=tarsi, fill="blue", alpha=alpha) + 
+  geom_cladelabel(node=strep, label="Strepsirrhines", color="purple",  extend = .5, barsize = 3,
+                  offset=offset, angle=angle,  offset.text = offset.text, hjust = .5, alpha=alpha+.2) +
+  geom_hilight(node=strep, fill="purple", alpha=alpha) +
+ 
+  geom_nodepoint() +   
+  # geom_hilight_encircle(node = 31, spread=.015, fill = "gold", s_shape= 1) + 
+  geom_point2(aes(subset=(node %in% shiftDF$Nodes)),color="mediumvioletred", size=10, alpha=0.5) +
+
+  # geom_tippoint() +   
+  geom_tiplab(geom="label", align=T,  hjust=1, size=fntSize, offset=20) + # offset=20 
+  # xlim(0, 120)  +
+  geom_text(aes(label=node.ages$ages), hjust=-.25, size=fntSize*2) +    
+  theme_tree2(plot.margin = unit(c(0,0,0,0), "cm"), legend.position="right") +
+  labs(x="MYA") 
+
+ 
+# # Add shift labels
+# gt <- gt + geom_vline(data=shiftDF, aes(xintercept= -Dates), size=5, alpha=.2) +
+#   geom_label(data=shiftDF, fill="black", color = "white", size=5, alpha=.5,
+#             mapping=aes(x= -Dates, y=-10, size=4, angle=0, vjust=0, hjust=0.5,
+#                         label=paste(paste("[",Clade,"]"),Events, paste(Dates,"MYA"), sep="\n")
+#                         )
+#             )
+
+# Reverse scale
+gt <- revts(gt) #+ scale_x_continuous(breaks= seq(-65,0, by = 10)) + xlim_expand(-50,10)
+gt
+
+
+# scale_x_ggtree(gt, breaks = seq(-80,0, by = 10) )
+
+# Rearrange clades
+gt <- ggtree::rotate(gt, node = 45)
+gt <- ggtree::rotate(gt, node = 47)
+gt <- ggtree::rotate(gt, node = 48)
+gt
+## *** Silhouettes ***
+# gt %<+% phylopic_info + geom_nodelab(aes(image=phylopic),
+#                                      geom="phylopic",
+#                                      alpha=.5, color='steelblue',nudge_x = -5)
+gt <- gt %<+% image_info + geom_nodelab(aes(image=images),
+                                     geom="image",
+                                     alpha=.5, color='black',nudge_x = -5, size=.07) 
+gt
+## Add HP porportions
+plot_colors <- RColorBrewer::brewer.pal(8, "RdPu")
+gb <- facet_plot(gt, #+ xlim_tree(c(-80,5)),
+                 panel = 'HC Subregional\nProportions',
+                 data = HP_proportions,
+                 geom = geom_colh, color="black",
+                 mapping = aes(x = Proportion, fill = Subregion))  
+gb <-  gb + scale_colour_manual(values = plot_colors) + scale_fill_manual(values = plot_colors)
+gb <- facet_plot(gb,
+                 panel = 'Residual Retrocommissural\nHippocampus Size',
+                 data = HPmed_res,
+                 geom = geom_colh,
+                 mapping = aes(x = res), fill="black", color="darkorchid")
+# CHange panel proportions at very end
+gb2 <- panel_proportions(gb, resize = 0.25) 
+# svg(gb, "timeline.svg")
+# ggplotGrob(gb2)
 ```
 
 ## Draw HC Network
@@ -1362,39 +1598,13 @@ plot(net, vertex.shape="circle",vertex.label.dist=2, vertex.size= V(net)$Size,
 
 ```
 
-### Interactive Plots
-
-```{r Interactive Plots, eval=F}
-tkid <- tkplot(net) #tkid is the id of the tkplot that will open
-l <- tkplot.getcoords(tkid) # grab the coordinates from tkplot
-plot(net, edge.arrow.size=.4, vertex.shape="circle",
- #    vertex.size= V(net)$Size, edge.width=V(net)$Size/5, edge.curved=.1,
-  #   vertex.color=V(net)$color, vertex.label.dist=2, layout=l)
-
-library(visNetwork)
-visNetwork(nodes, links, width="100%", height="400px", main=paste("Hippocampal Complex Network:",species))
-
-nodes$shape <- "dot"  
-nodes$shadow <- TRUE # Nodes will drop shadow
-nodes$title <- nodes$Region # Text on click
-nodes$label <- nodes$Region # Node label
-nodes$size <- nodes$Size # Node size
-nodes$borderWidth <- 2 # Node border width
-
-nodes$color.background <- c("slategrey", "tomato", "gold")[nodes$media.type]
-nodes$color.border <- "black"
-nodes$color.highlight.background <- "orange"
-nodes$color.highlight.border <- "darkred"
-
-visNetwork(nodes, links)
-
-```
-
-
 # Save Results
 
 Save the updated data in a new table
 ```{r Save Results}  
+# save.image( file = "Data/HippoEco_AllResults.RData")
+# load("~/Desktop/Hippo_Eco/Data/HippoEco_AllResults.RData")
+
 createDT(HP$data, caption = "Complete Data",save = "HP_eco_full_results", scrollY = F)
 ```
 
