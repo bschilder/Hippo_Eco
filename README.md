@@ -20,4 +20,4 @@ The hippocampal complex (HC) is central to long-term memory storage and retrieva
   
   
 ### The deep evolutionary history of the human hippocampus    
-![HPeco_FigTree](./Figures/Deep_Timeline_edit.png)
+![HPeco_FigTree](./Figures/Deep_Timeline/Deep_Timeline_edit.png)
