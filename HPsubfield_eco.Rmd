@@ -221,7 +221,7 @@ pgls_function <- function(comp_data, response_var, predictor_var){
 ## Absolute vols plot (not that informative since it's basically just tracking brain size)
   #HP_data <- as.matrix(comp_data$data[response_var])
   #names(HP_data) <- comp_data$phy$tip.label
-  #phylo_plot <- contMap(comp_data$phy, HP_data, type="phylogram", plot=TRUE)
+  # phylo_plot <- contMap(comp_data$phy, HP_data, type="phylogram", plot=TRUE)
 ## Residuals plot
   HPres_data <- as.matrix(comp_data$data[res_name])
   names(HPres_data) <- comp_data$phy$tip.label
@@ -366,6 +366,9 @@ all_eco_plots <- function(pgls_function.out){
 ## Calculate Residual_HomeRange
 
 ```{r Calculate Residual_HomeRange}
+HR_phylo <- contMap(HP$phy, HP$data$Home_Range, type="phylogram", plot=FALSE)
+  plot(res_phylo_plot, leg.txt="Home Range",lwd=3, fsize=c(0.5, 1)) 
+  
 # We know HomeRange scales with BodySize, so perhaps using "extra" HR relative to body weight is a more relavent measure.
   ## Alternatively could include BodySize as covariate in eco model.
 HR.body_res <- pgls_function(HP, "Home_Range", "Body_Size")
@@ -853,9 +856,9 @@ pander::pander(phy.PCA$L[,1:4]) # Show PC1-4
 phy.PCA$lambda # Show lambda
 # Select which vars to put in PCA
 summPCA <- summary(phy.PCA)
-
+ 
 # Simple biplot
-biplot(phy.PCA$S, phy.PCA$L, xlabs=rep("o", nrow(phy.PCA$S)), main = "Phylogenetic PCA: PC Axes")
+biplot(phy.PCA$S, phy.PCA$L, xlabs=rep("o", nrow(phy.PCA$S)), main = "Phylogenetic PCA: PC Axes", col=c("blue","purple") )
 # (ggbiplot doesn't recognize phyl.pca format)
 
 # Polygonal PCA
@@ -897,7 +900,8 @@ PC34 <- ggplot(data=DFforPlot, aes(x=PC3, y=PC4, color=Clade, fill=Clade, shape=
   stat_ellipse(geom="polygon", level=0.95, alpha=0.2) +
   geom_point(size=3) + labs(title = "Phylogenetic PCA: \nResidual Hippocampal Subregions", x = paste("PC3","(", round(POV[3], 2), "%)"), y = paste("PC4","(", round(POV[4], 2), "%)")) +
   scale_x_continuous(expand = c(.1, .1)) + 
-  scale_shape_manual(values=shapes) + scale_color_manual(values=colors) +   scale_fill_manual(values = colors) +
+  scale_shape_manual(values=shapes) + scale_color_manual(values=colors) + 
+  scale_fill_manual(values = colors) +
   geom_text_repel(aes(label=Species), box.padding=unit(0.35, "lines"), 
                   point.padding = unit(0.1, "lines"))
 PC34 %>% ggplotly()
@@ -1297,11 +1301,43 @@ Sub.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,Sub_res), model="pBIC")
 
 ### l1ou: Ecological Variables
 
-```{r l1ou: Ecological Variables, fig.height=9, fig.width=9} 
+```{r l1ou: Ecological Variables, fig.height=9, fig.width=9}  
+subDat <- dplyr::select(HP$data,
+                               DietBreadth,
+                               PopulationDensity_n_km2,
+                               GroupSize_filled,
+                               Home_Range, 
+                               Home_Range_res) 
+missing <- subDat[!complete.cases(subDat), ] 
+completeDF<- subDat[complete.cases(subDat), ] 
+
+trim_tree <- drop.tip(tree, row.names(missing), trim.internal = T)
+fixed <- adjust_data(tree=trim_tree, Y = completeDF)
+# Multi model
+Eco.pBIC <- l1ou(fixed$tree, dat=fixed$Y, model="pBIC", multi=T)
+
+# Individual models
 HR.pBIC <- l1ou(tree, dat=dplyr::select(HP$data, Home_Range), model="pBIC")
 HRres.pBIC <- l1ou(tree, dat=dplyr::select(HP$data, Home_Range_res), model="pBIC")
 Group.pBIC <- l1ou(tree, dat=dplyr::select(HP$data, GroupSize_filled), model="pBIC")
 ```
+
+```{r eco phylogram} 
+dev.off()
+X <- fixed$Y
+
+layout(matrix(1:3,1,3),widths=c(0.44,0.12,0.44))
+par(cex=1)
+contMap(trim_tree, X[,1],ftype="off",sig=1,legend=1)
+ylim<-c(1-0.12*(length(trim_tree$tip.label)-1),length(trim_tree$tip.label))
+plot.new(); plot.window(xlim=c(-0.1,0.1),ylim=ylim)
+text(rep(0,length(trim_tree$tip.label)), 1:length(trim_tree$tip.label),trim_tree$tip.label)
+contMap(trim_tree,X[,2],ftype="off",direction="leftwards", sig=1,legend=1)
+ 
+eco_phylo <- contMap(tree=fixed$tree, x = fixed$Y[,"DietBreadth"], type="phylogram", lwd=3, fsize=c(0.5, 1))
+plot_grid(plot(eco_phylo, leg.txt="Home Range") )
+```
+
 
 
 # Tests
