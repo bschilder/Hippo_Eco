@@ -1,6 +1,6 @@
 # Hippo_Eco
 
-A respository for all code, analyses, results, and data related to the study:
+A repository for all code, analyses, results, and data related to the study:
 
 ## Evolutionary shifts dramatically reorganized the human hippocampal complex <br><i>Journal of Comparative Neurology</i> (2019)  
 
