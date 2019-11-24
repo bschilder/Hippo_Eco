@@ -1,13 +1,16 @@
 # Hippo_Eco
 
-## Evolutionary shifts dramatically reorganized the human hippocampal complex 
-### <i>Journal of Comparative Neurology</i> (2019)
+A respository for all code, analyses, results, and data related to the study:
 
-An interactive report of the results from this study is available [here](https://bschilder.github.io/Hippo_Eco/HPsubfield_eco.html):  
+## Evolutionary shifts dramatically reorganized the human hippocampal complex <br><i>Journal of Comparative Neurology</i> (2019)  
 
+<br>
 
+[Interactive report of all anaylsis results.](https://bschilder.github.io/Hippo_Eco/HPsubfield_eco.html)
 
-### The deep evolutionary history of the human hippocampus    
+<br>
+
+#### Figure 20: The deep evolutionary history of the human hippocampus    
 ![HPeco_FigTree](./Figures/Deep_Timeline/Deep_Timeline_edit.png)
 
 
