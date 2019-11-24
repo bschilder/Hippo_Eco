@@ -4,3 +4,4 @@ Other/
 ./**.DS_Store
 ./**/**.DS_Store
 Manuscripts/
+.Rproj.user

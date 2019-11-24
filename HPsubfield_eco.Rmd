@@ -25,7 +25,7 @@ editor_options:
 Read comments in the setup section below for directions on install additional dependencies.
 
 ```{r setup, warning=F, message=F, include=T, dpi = 600}
-# setwd("Desktop/Hippo_Eco/")
+setwd("~/Desktop/Hippo_Eco/")
 library(readxl)
 library(dplyr)  
 library(pander) 
@@ -44,13 +44,13 @@ library(grid)
 library(cowplot)
 library(plotly)
 library(heatmaply)
+library(tidyverse)
 
 # library(xlss) # For xlss, must first download JDK: https://www.oracle.com/technetwork/java/javase/downloads/jdk11-downloads-5066655.html
-library(tidyverse)
-library(ggtree)
+library(ggtree)# BiocManager::install("ggtree")
 library(ggimage)
 library(ggstance)
-# BiocManager::install("ggtree")
+
 
 library(phytools) 
 library(caper)
@@ -66,8 +66,8 @@ library(rgl) # Macs need to download X11 first. Link here: http://xquartz.macosf
 knitr::knit_hooks$set(webgl = hook_webgl)
 knitr::opts_chunk$set(echo=T, warning=F, message=F)
 
-thm <- knitr::knit_theme$get("solarized-dark")
-knitr::knit_theme$set(thm)
+# thm <- knitr::knit_theme$get("solarized-dark")
+# knitr::knit_theme$set(thm)
 
 sessionInfo()
 ```
@@ -76,11 +76,13 @@ sessionInfo()
 # Import Data
 
 ```{r Import Data}
+#### LOAD PREVIOUSLY COMPUTED RESULTS #### #### #### #### #### #### 
+# load("~/Desktop/Hippo_Eco/Data/HippoEco_AllResults.RData")
+#### #### #### #### #### #### #### #### #### #### #### #### #### 
+
 # Frahm HP-subfield data (1982) + Barger whole-HP & brain (2015) + Pantheria eco + ATWP eco
 HP_orig <- as.data.frame(read_excel("Data/Frahm_HPsub_eco.xlsx", sheet = "Final_Data", na = "NA"))
-# Apply filter to find variables with more than ##% of species missing that data, so that they can be excluded from the model (or have data added to them)
-HP_filt <- HP_orig %>% dplyr::select(which(colMeans(is.na(.)) < 0.25))
- 
+
 ## Designate groups
 HP_orig$Genus <- gsub("_.*","",HP_orig$Species_10K)
 
@@ -96,23 +98,28 @@ HP_orig$Clade <-
 orderedClades <- c("Homo sapiens","Apes","Old World Monkeys","New World Monkeys","Tarsiiformes","Strepsirrhines")
 HP_orig$Clade <- factor(HP_orig$Clade, labels=orderedClades, levels=orderedClades, ordered=T)
 
+
 # Rename some variables
-names(HP_orig)[names(HP_orig)=="HippocampusRetro"] <- "retroHP"
-names(HP_orig)[names(HP_orig)=="FasciaDentata"] <- "FD"
-names(HP_orig)[names(HP_orig)=="Subiculum"] <- "Sub"
-names(HP_orig)[names(HP_orig)=="HP_HS_fibers"] <- "Fibers"
-names(HP_orig)[names(HP_orig)=="Body"] <- "Body_Size"
-names(HP_orig)[names(HP_orig)=="Schizocortex"] <- "EC" # switched from EC
-names(HP_orig)[names(HP_orig)=="HR_filled"] <- "Home_Range"
+HP_orig <- HP_orig %>% dplyr::rename(retroHP=HippocampusRetro,
+                                      FD=FasciaDentata,
+                                      Sub=Subiculum,
+                                      Fibers=HP_HS_fibers,
+                                      Body_Size=Body,
+                                      # "EC*"=Schizocortex,
+                                      EC=Schizocortex, 
+                                      Diet_Breadth = DietBreadth,
+                                      Group_Size = GroupSize_filled,
+                                      Home_Range = HR_filled,)
+ 
 
 # Log Neuroanatomical vars
 #cols <- c("Body_Size","BrainVol","retroHP","FD","Hilus","CA3","CA2","CA1","Sub")
 #HP_orig[cols] <- log(HP_orig[cols])
 
 # Log Eco vars
-HP_orig$PopulationDensity_n_km2 <- scales::rescale(log(HP_orig$PopulationDensity_n_km2),c(1,10))
-HP_orig$GroupSize_filled <-  scales::rescale(log(HP_orig$GroupSize_filled),c(1,10))
-HP_orig$Home_Range <-  scales::rescale(log(HP_orig$Home_Range),c(1,10))
+# HP_orig$PopulationDensity_n_km2 <- scales::rescale(log(HP_orig$PopulationDensity_n_km2),c(1,10))
+# HP_orig$GroupSize_filled <-  scales::rescale(log(HP_orig$GroupSize_filled),c(1,10))
+# HP_orig$Home_Range <-  scales::rescale(log(HP_orig$Home_Range),c(1,10))
 
 
 # Add combined regions as variables
@@ -122,6 +129,7 @@ HP_orig$CA2.3 <- HP_orig$CA2 + HP_orig$CA3
 
 # Correct units of Barger (2015) data
 HP_orig[,c("BrainVol","HPvol")] <- HP_orig[,c("BrainVol","HPvol")] * 1000
+
 
 # Create retoHP minus each subregion
   HP_orig$Body__Brain <- HP_orig$Body_Size - HP_orig$BrainMass
@@ -137,10 +145,12 @@ HP_orig[,c("BrainVol","HPvol")] <- HP_orig[,c("BrainVol","HPvol")] * 1000
   HP_orig$retroHP__CA2 <- HP_orig$retroHP - HP_orig$CA2
   HP_orig$retroHP__CA1 <- HP_orig$retroHP - HP_orig$CA1
   HP_orig$retroHP__Sub <- HP_orig$retroHP - HP_orig$Sub
-
 colnames(HP_orig)
 
-  
+
+# Convert ACtivityCycle to categorical
+# ActCycle_dict <- setNames(c("A","B","C",NA), unique(HP_orig$ActivityCycle))
+# HP_orig$ActivityCycle <- ActCycle_dict[HP_orig$ActivityCycle]
 ## Make shapes and colors consistent
 shapes <- c(17,16,18,15,7,9)
 names(shapes) <-levels(HP_orig$Clade) 
@@ -150,14 +160,141 @@ names(shapes) <-levels(HP_orig$Clade)
   #}
 #colors <- gg_color_hue(6)
 colors <- c("#C99800","#F8766D","#00BCD8","#00BA38","blue2","#FD61D1")
-  # Remove human shape/color if humans were removed
-  if(!("Homo" %in% HP_orig$Genus)){colors<-colors[-1]; shapes<-shapes[-1]}
+# Remove human shape/color if humans were removed
+if(!("Homo" %in% HP_orig$Genus)){colors<-colors[-1]; shapes<-shapes[-1]}
 names(colors) <- names(shapes)
 ```
 
+## Filter & Normalize
 
+```{r Filter & Normalize}
+# log normalize neuro and/or eco data
+## Don't need to normalize the neuro vars bc they're already normal and on the same scale.
+## Besides, I'm using the residuals for the selective regime analyses.
+var_list <- c(
+              # "Diet_Breadth", # Can't normalize bc it's ordinal data, not numeric like the others
+              "Population_Density", # "PopulationDensity_n_km2",
+              "Group_Size",
+              "Home_Range")
+
+# vec <- HP$data$CA1_res
+
+scale_ <- function(vec, lower=1, upper=2){
+  scaled <- as.vector(scales::rescale(vec, to=c(lower:upper))) 
+  return(scaled)
+}
+
+log_scale <- function(vec){
+   logged <- log10(vec)
+   scaled <- scale_(logged)
+   # scaled <- scaled + 0.00000000000000001
+   # scaled <- zscore(logged, rescale_01 = T)
+   return(scaled)
+}
+
+scale_log <- function(vec){
+   scaled <- scale_(vec)# + .Machine$double.xmin
+   logged <- log10(scaled)
+   return(logged)
+}
+
+
+scale_minmax <- function(vec){ 
+  scaled <- vec + abs(min(vec)) + 0.1
+  return(scaled)
+}
+
+logTrans <- function(vec, constant=1){
+  logged <- log10(vec + constant - min(vec))
+  return(logged)
+}
+
+logTrans_scale <- function(vec, constant=1){
+   logged <- log10(vec + constant - min(vec))
+   scaled <- scale_(logged)
+   return(scaled)
+}
+
+scale_logTrans <- function(vec, constant=1){
+  scaled <- scale_(vec)
+  logged <- logTrans(scaled)
+  return(logged)
+}
+
+scaleMM_logTrans <- function(vec, constant=1){
+  scaled <- scale_minmax(vec)
+  logged <- logTrans(scaled, constant = constant)
+  return(logged)
+}
+
+logTrans_missing <- function(vec){ 
+  indices <- match(NA, vec)
+  if(is.na(indices)){
+     completed <- scale_logTrans(vec)
+  } else {
+     non.missing <- vec[!is.na(vec)] %>% scale_logTrans()
+     completed <- R.utils::insert(x=non.missing, ats=indices, values=rep(NA, length(indices)))
+  } 
+  return(completed)
+}
+
+logTrans_missing_scale <- function(vec){
+  trans <- logTrans_missing(vec)
+  scaled <- scale_(trans)
+  return(scaled)
+}
+
+rm_outliers <- function(vec, n_outliers=1){
+  # vec <- HP$data$Population_Density
+  outliers <- boxplot(vec, plot=F)$out %>% sort(decreasing = T)
+  if(length(outliers)>0){
+    indices <- match(outliers[n_outliers], vec)
+    vec[indices] <- NA
+  } 
+  return(vec)
+}
+
+
+
+log_missing <- function(vec){ 
+  indices <- match(NA, vec)
+  if(is.na(indices)){
+     completed <- scale_logTrans(vec)
+  } else {
+     non.missing <- vec[!is.na(vec)] %>% log10()
+     completed <- R.utils::insert(x=non.missing, ats=indices, values=rep(NA, length(indices)))
+  } 
+  return(completed)
+}
+
+log_missing_scale <- function(vec){
+  logged <- log_missing(vec)
+  scaled <- scale_(logged)
+  return(scaled) 
+}
+
+# HP_scaled <- HP_orig
+# for(v in var_list){
+#   print(v)
+#   scaled <- log_scale(HP_orig[[v]] )
+#   res <- shapiro.test(scaled)
+#   print(res) 
+#   HP_scaled[v] <- scaled
+#   # hist(HP_orig[[v]])
+#   # hist(scaled)
+#   # From the output, the p-value > 0.05 implying that the distribution of the data are not significantly different from normal distribution. In other words, we can assume the normality.
+# }
+# HP_orig <- HP_scaled
+
+
+# Apply filter to find variables with more than ##% of species missing that data, so that they can be excluded from the model (or have data added to them)
+# HP_orig <- HP_orig %>% dplyr::select(which(colMeans(is.na(.)) < 0.40))
+# ************** Exclude strepsirrhines # ************** 
+# HP_orig <- subset(HP_orig, Clade != "Strepsirrhines")
+```
 
 ## Tree & Comparative Files
+
 ```{r Tree & Comparative Files}
 # Primate tree from 10K Trees 
 tree10K <- read.nexus(file = "Data/Phylo/10k_Primates.nex")
@@ -176,23 +313,74 @@ HP$data["Species_10K"] <- row.names(HP$data)
 
 # Create Functions
 
+
+## Assign norm function
+```{r}
+# res_norm_func=function(x){x}
+# resHR_norm_func=scale_
+# norm_func=scale_
+```
+
+
 ## PGLS residuals & plot function
 
 ```{r PGLS residuals & plot function}
-pgls_function <- function(comp_data, response_var, predictor_var){ 
-  HPres <- pgls(data=comp_data, log(eval(parse(text=response_var))) ~ 
-                      log(eval(parse(text=predictor_var))), lambda='ML') 
-  pgls_summary <- summary(HPres)
-  print(pgls_summary)
+
+pgls.plot_curve <- function(comp_data, x, y, model, xy_plot, x_norm_func, y_norm_func){
+  x.values <- x_norm_func(as.numeric(comp_data$data[[x]]))
+  x.smooth<- seq(min(x.values),max(x.values),.01)
   
+  exp.predict <- exp(predict(model, setNames(list(x.smooth), x)))
+  exp.line <- data.frame(x=x.smooth, y=exp.predict)
+  return( xy_plot + geom_line(data = exp.line, aes(x, y), inherit.aes = F) )
+}
+
+
+pgls.xy_plot <- function(comp_data, pgls_summary, 
+                           response_var, predictor_var, 
+                           norm_func=function(x){x},
+                           x_prefix="", x_suffix="", 
+                           y_prefix="", y_suffix="", interact=F){
+    xy_plot_legend <- ggplot(comp_data$data, aes(y=norm_func(eval(parse(text=response_var))), 
+                                            x=norm_func(eval(parse(text=predictor_var))),
+                                            fill=Clade, color=Clade, shape=Clade) )  +
+    geom_abline(slope = pgls_summary$coefficients[2,1], intercept = pgls_summary$coefficients[1,1], color="black") +
+    geom_point(size=3) + 
+    labs(y=paste0(y_prefix,response_var,y_suffix), x=paste0(x_prefix, predictor_var,x_suffix)) + 
+    theme(plot.title = element_text(hjust=0.5, size=8)) + 
+    scale_shape_manual(values=shapes) + scale_color_manual(values=colors) + scale_fill_manual(values=colors)   
+  if(interact){
+    print(xy_plot_legend %>% ggplotly())
+  } else{
+    print(xy_plot_legend)
+  }
+  xy_plot <- xy_plot_legend + theme(legend.position = "none")
+  return(xy_plot)
+}
+
+pgls_function <- function(comp_data, 
+                          response_var, 
+                          predictor_var,  
+                          lambda='ML', 
+                          interact=T, 
+                          norm_func=log10,#log_missing,    
+                          y_prefix="",
+                          x_prefix="", 
+                          y_suffix=" (mm3)",
+                          x_suffix=" (mm3)"){   
+  model <- caper::pgls(data=comp_data, 
+                        norm_func(eval(parse(text=response_var))) ~ 
+                        norm_func(eval(parse(text=predictor_var))), lambda=lambda) 
+  pgls_summary <- summary(model)
+  print(pgls_summary)
   ## Get res
-  res <- resid(HPres)
+  res <- resid(model)
   res_name <- paste(response_var,"res",sep="_")
   ## Put back into comparative.data
-  comp_data$data[res_name] <- as.vector(scales::rescale(res, c(1:2)))
+  comp_data$data[res_name] <- as.vector(res)# as.vector(scales::rescale(res, c(1:2))) #
   new_comp_data <- comp_data
   # Put into actual comparative.data in global environment
-  comp_data$data[res_name] <- as.vector(scales::rescale(res, c(1:2)))
+  # comp_data$data[res_name] <- as.vector(scales::rescale(res, c(1:2)))
   assign('HP',comp_data,envir=.GlobalEnv)
   
   #  Test if residuals are normally distributed
@@ -202,17 +390,17 @@ pgls_function <- function(comp_data, response_var, predictor_var){
     # radj <- as.numeric(pgls_summary$adj.r.squared)
     # p <- as.numeric(pgls_summary$coefficients[2,4])
     #title = title=paste(response_var,"vs.", predictor_var, paste("\n adj.R^2=", round(radj,4),", p= ",round(p,4)))
-  xy_plot_legend <- ggplot(comp_data$data, aes( y=log(eval(parse(text=response_var))), 
-                                                x=log(eval(parse(text=predictor_var))),
-                                                fill=Clade, color=Clade, shape=Clade) ) + 
-    geom_abline(slope = pgls_summary$coefficients[2,1], intercept = pgls_summary$coefficients[1,1], color="black") +
-    geom_point(size=3) + 
-    labs(y=paste(response_var,"vol (mm3)"), x=paste(predictor_var,"vol (mm3)")) + 
-    theme(plot.title = element_text(hjust=0.5, size=8)) + 
-    scale_shape_manual(values=shapes) + scale_color_manual(values=colors) + scale_fill_manual(values=colors)  
-  print(xy_plot_legend %>% ggplotly())
   
-  xy_plot <- xy_plot_legend + theme(legend.position = "none")
+   xy_plot <- pgls.xy_plot(comp_data, pgls_summary, 
+                           response_var, predictor_var )
+    
+   # xy_plot <- pgls.plot_curve(comp_data, 
+   #                            x=predictor_var, y=response_var, 
+   #                            model=model, xy_plot=xy_plot, 
+   #                            x_norm_func = norm_func,
+   #                            y_norm_func = function(x){x})
+    
+ 
   # + annotate("text",x=5, y=10, hjust=0, label =  paste("adj.R^2 =", round(radj,4), "; p = ", round(p,4)))
   
 
@@ -259,61 +447,190 @@ pgls_function <- function(comp_data, response_var, predictor_var){
 
 ## Eco analyses function
 
-NOTE: Some variables may not be appropriate to put in model together due to colinearity. To solve this, could:
+**NOTE**: Some variables may not be appropriate to put in model together due to colinearity. To solve this, could:
 * Remove certain variables
 * Perform a stepwise regression: http://blog.phytools.org/2014/06/performing-stepwise-phylogenetic.html
+
+
+### Phylostep
+
+Optimize the mode through systematic variable selection.
+
+```{r Phylostep}
+run_eco.variable_selection <- function(pgls_function.out,
+                                       pgls_eco_raw,
+                                       eco_vars,
+                                       res_norm_func=function(x){x},
+                                       resHR_norm_func=scale_,
+                                       norm_func=scale_,
+                                       bootstraps=100){
+  # pgls_function.out <- CA1.HP_res
+  message(">>>>> PHYLOSTEP:: <<<<<<<")
+  library(future); plan(multiprocess)
+  # Filtering
+  dat <- pgls_function.out$new_comp_data
+  dat <- subset(dat, Genus!="Homo")
+  keep.species <- row.names(dat$data[,c(pgls_function.out$response_var, eco_vars)] %>% na.omit() %>% droplevels())
+  dat <- subset(dat, Species %in% keep.species) 
+  # Run variable selection
+  # text.formula <- paste(pgls_function.out$response_var, "~", paste(eco_vars,collapse="+"))
+  text.formula <- paste0(pgls_function.out$response_var,"_res ~ ", as.character(pgls_eco_raw$formula)[3])  
+  best.model <- phylolm::phylostep(data = dat$data, 
+                                   phy = dat$phy, 
+                                   direction = "both", 
+                                   model = "lambda",
+                                   boot = bootstraps,
+                                   formula = eval(parse(text=text.formula)))
+  message(">>>>> PHYLOSTEP:: Optimized model results <<<<<<<")
+  print(summary(best.model) ) 
+  # Re-run with pgls function just because the summary output is nicer 
+  message(">>>>> PHYLOSTEP:: New Model results <<<<<<<")
+  print(best.model$formula)
+  new.model <- caper::pgls(data = dat, formula = eval(parse(text=best.model$formula)))
+  summary(new.model)
+  
+  return(best.model)
+} 
+```
+
+
+
 ```{r Eco analyses function} 
-# MODEL HERE
+nonNA_subset <- function(HP, 
+                         response_var,
+                         no_homo = T,
+                         remove_outliers = F,
+                         eco_vars =  c("Diet_Breadth",
+                                        "Population_Density",
+                                        "Group_Size",
+                                        "Home_Range",
+                                        "Residual_HomeRange")){
+  dat <- HP
+  if(no_homo){
+     print("Removing Homo sapiens...")
+     # Phylo object understand subset command
+    dat <- subset(dat, Genus!="Homo")
+   } 
+  keep.species <- row.names(dat$data[,c(response_var, eco_vars)] %>% 
+                              na.omit() %>% droplevels())
+  dat <- subset(dat, Species %in% keep.species) 
+  
+  
+ if(remove_outliers!=F){
+   print("Removing outliers...")
+   for(v in eco_vars){
+      x <- as.numeric(dat$data[[v]])
+      dat$data[v] <- rm_outliers(x, remove_outliers)
+   }
+ }  
+  return(dat) 
+}
+# MODEL HERE 
 # Analyze all eco variables in one model
-run_eco <- function(pgls_function.out){
-  # Run pgls 
-  HP.noHomo <- subset(pgls_function.out$new_comp_data, subset=! Genus=="Homo")
-  pgls_eco_raw <- pgls(data=HP.noHomo, formula=
-    eval(parse(text=paste(pgls_function.out$response_var,"res",sep="_"))) ~  
-                     DietBreadth + PopulationDensity_n_km2 +
-                    GroupSize_filled + Home_Range + Residual_HomeRange,
-                   lambda='ML') 
+run_eco <- function(pgls_function.out,  
+                    res_norm_func=function(x){x},
+                    resHR_norm_func=scale_,
+                    norm_func=scale_,#log_missing_scale,#scale_log, 
+                    no_homo=T, 
+                    remove_outliers=0,
+                    variable_selection=F){
+  dat <- pgls_function.out$new_comp_data 
+  eco_vars <- c("Diet_Breadth",
+                "Population_Density",
+                "Group_Size",
+                "Home_Range",
+                "Residual_HomeRange")
+  dat <- nonNA_subset(HP = dat, 
+                      response_var = pgls_function.out$response_var,
+                       no_homo = no_homo,
+                       eco_vars = eco_vars)
+ 
+   pgls_eco_raw <- pgls(data=dat, formula=
+    res_norm_func(eval(parse(text=paste(pgls_function.out$response_var,"res",sep="_"))))~  
+      
+    resHR_norm_func(Diet_Breadth) +  
+    norm_func(Population_Density) +
+    norm_func(Group_Size) +
+    norm_func(Home_Range) + 
+    resHR_norm_func(Residual_HomeRange),# Residual Home range has to be normalized differently bc it's residual (can't log negatives)
+    # log10(ActivityCycle) +  
+    # log10(HabitatBreadth) +
+    # log10(ATWP_perForaging) + 
+    # log10(ATWP_DR),
+  lambda='ML'
+  )  
   # + HR_filled + GroupSize_filled + ATWP_DR + ATWP_perForaging + ATWP_perTravel
   pgls_eco_summary <- summary(pgls_eco_raw)
-
-  output <- list(pgls_eco_summary=pgls_eco_summary, pgls_eco_raw=pgls_eco_raw)
+  
+  
+  # Variable selection  using phylostep
+  # best.model <- phylolm::phylostep(data = dat$data, 
+  #                                  phy = dat$phy, 
+  #                                  direction = "both", 
+  #                                  model = "BM",
+  #                                  formula = pgls_eco_raw$formula)
+  # new.model <- pgls(data = dat, formula = eval(parse(text=best.model$formula)))
+  # summary(new.model)
+  if(variable_selection){
+     optimized.model <- run_eco.variable_selection(pgls_function.out, 
+                                                pgls_eco_raw, 
+                                                eco_vars,
+                                                res_norm_func, 
+                                                resHR_norm_func,
+                                                norm_func)
+  } else {optimized.model <- NULL }
+ 
+  print(pgls_eco_summary)
+  output <- list(pgls_eco_summary=pgls_eco_summary, 
+                 pgls_eco_raw=pgls_eco_raw,
+                 optimized.model=optimized.model)
   return(output)
 }
 ```
+
 
 ## Eco plot functions
 
 ```{r Eco plot functions} 
 # Plot eco variable function
-eco_plots <- function(pgls_function.out, eco_var, run_eco.out, figLabel=""){
+eco_plots <- function(pgls_function.out, 
+                      eco_var, 
+                      run_eco.out, 
+                      figLabel="", 
+                      res_norm_func=function(x){x},
+                      norm_func_plot=log10,
+                      x_prefix=""){
+  
     pgls_eco_sum <- run_eco.out$pgls_eco_summary
     response_var <- pgls_function.out$response_var
     data <- pgls_function.out$new_comp_data$data
     brain <- data[,paste(response_var,"res",sep="_")] 
     eco_x <-data[,paste(eco_var)] 
-      slope <- as.numeric(pgls_eco_sum$coefficients[eco_var,1])
-      p <- as.numeric(pgls_eco_sum$coefficients[eco_var,4])
-      
-  #  Initialize plot
-  eco_plot <- ggplot(data, aes(y=brain, x=eco_x, fill=Clade, color=Clade, shape=Clade))  + 
-    theme_classic() + ggtitle(figLabel)
-  
+    eco.row <- pgls_eco_sum$coefficients[grep(eco_var, rownames(pgls_eco_sum$coefficients)), ]
+      slope <- as.numeric(eco.row[["Estimate"]])
+      p <- as.numeric(eco.row[["Pr(>|t|)"]])
+  #  Initialize plot 
+  # if(eco_var=="Residual_HomeRange"){norm_func <- res_norm_func}
+   eco_plot <- ggplot(data, aes(y=res_norm_func(brain), x=norm_func_plot(eco_x), 
+                                fill=Clade, color=Clade, shape=Clade))  + 
+     theme_classic() + ggtitle(figLabel)
   # Conditionally add regression line
   if ( p<=0.05){ 
-    eco_plot <- eco_plot +  
-      geom_smooth(na.rm=F, inherit.aes=F, method="lm", alpha = .15, data=data, aes(y=brain, x=eco_x))
+      eco_plot <- eco_plot +  
+      geom_smooth(na.rm=F, inherit.aes=F, method="lm", alpha = .15, 
+                  data=data, aes(y=res_norm_func(brain), x=norm_func_plot(eco_x))) 
   } 
   # Conditionally add legend
   if (eco_var == "Residual_HomeRange"){
     eco_plot =  eco_plot + theme(legend.position=c(1.75, 0.35), legend.background = element_rect(fill="whitesmoke"),
-                                 plot.title = element_text(hjust= -.3))
+                                 plot.title = element_text(hjust= -.1))
   } else{
     eco_plot = eco_plot + theme( legend.position="none",
-                                 plot.title = element_text(hjust= -.3))
+                                 plot.title = element_text(hjust= -.1))
   }    
   # Add remaining featuress
   eco_plot <- eco_plot + geom_point(size=3, alpha=.7) +  
-         xlab(paste(eco_var,sep="")) + ylab(paste(response_var,"res",sep="_")) +   
+         xlab(paste(x_prefix,eco_var,sep="")) + ylab(paste(response_var,"res",sep="_")) +   
          scale_shape_manual(values=shapes) + scale_color_manual(values=colors) + scale_fill_manual(values=colors) 
 
  
@@ -322,29 +639,45 @@ eco_plots <- function(pgls_function.out, eco_var, run_eco.out, figLabel=""){
       return(eco_plot) # %>% ggplotly()
   }
   
-# MAKE MORE FLEXIBLE (dependent on which model variables actually used)
-all_eco_plots <- function(pgls_function.out){
-  eco=run_eco(pgls_function.out)
+# MAKE MORE FLEXIBLE (dependent on which model variables actually used) 
+all_eco_plots <- function(pgls_function.out, 
+                          norm_func_plot = log_scale,
+                          resHR_norm_func_plot=scale_
+                          ){
+  eco=run_eco(pgls_function.out = pgls_function.out)
+  print(eco$pgls_eco_summary)
   p_f.o <-pgls_function.out
-  #e0 <- eco_plots(eco_var = "Nocturnality", run_eco.out=eco)
-  e1 <-eco_plots(p_f.o, eco_var = "DietBreadth", run_eco.out=eco, figLabel="A")
+  # e0 <- eco_plots(eco_var = "Nocturnality", run_eco.out=eco)
+  e1 <-eco_plots(pgls_function.out = p_f.o, eco_var = "Diet_Breadth", run_eco.out=eco, figLabel="(a)", 
+                 norm_func_plot = resHR_norm_func_plot)
   #e2 <-eco_plots(p_f.o, eco_var = "HomeRange_km2", run_eco.out=eco)
   #e3 <-eco_plots(p_f.o, eco_var = "HomeRange_Indiv_km2", run_eco.out=eco)
-  e4 <-eco_plots(p_f.o, eco_var = "PopulationDensity_n_km2", run_eco.out=eco, figLabel="B")
-  #e5 <-eco_plots(p_f.o, eco_var = "SocialGrpSize", run_eco.out=eco)
-  #e6 <-eco_plots(p_f.o, eco_var = "ATWP_DR", run_eco.out=eco)
-  #e7 <-eco_plots(p_f.o, eco_var = "ATWP_perForaging", run_eco.out=eco)
+  e4 <-eco_plots(p_f.o, eco_var = "Population_Density", run_eco.out=eco, figLabel="(b)", norm_func_plot = norm_func_plot)
+  # e5 <-eco_plots(p_f.o, eco_var = "SocialGrpSize", run_eco.out=eco)
+  # e6 <-eco_plots(p_f.o, eco_var = "ATWP_DR", run_eco.out=eco)
+  # e7 <-eco_plots(p_f.o, eco_var = "ATWP_perForaging", run_eco.out=eco)
   #e8 <-eco_plots(p_f.o, eco_var = "ATWP_GroupSize", run_eco.out=eco)
   #e9 <-eco_plots(p_f.o, eco_var = "ATWP_HR", run_eco.out=eco)
   #e10 <-eco_plots(p_f.o, eco_var = "ATWP_perTravel", run_eco.out=eco)
-  e11 <-eco_plots(p_f.o, eco_var = "GroupSize_filled", run_eco.out=eco, figLabel="C")
-  e12 <-eco_plots(p_f.o, eco_var = "Home_Range", run_eco.out=eco, figLabel="D")
-  e13 <-eco_plots(p_f.o, eco_var = "Residual_HomeRange", run_eco.out=eco, figLabel="E") 
-   
-  gridExtra::grid.arrange(e1,e4,e11,e12,e13, ncol=3, 
+  e11 <-eco_plots(p_f.o, eco_var = "Group_Size", run_eco.out=eco, figLabel="(c)", norm_func_plot = norm_func_plot)
+  e12 <-eco_plots(p_f.o, eco_var = "Home_Range", run_eco.out=eco, figLabel="(d)", norm_func_plot = norm_func_plot)
+  e13 <-eco_plots(p_f.o, eco_var = "Residual_HomeRange", run_eco.out=eco, figLabel="(e)", 
+                  norm_func_plot = resHR_norm_func_plot)
+  
+  # Additional variables
+  # e14 <-eco_plots(p_f.o, eco_var = "ActivityCycle", run_eco.out=eco, figLabel="(f)")
+  # e15 <-eco_plots(p_f.o, eco_var = "HabitatBreadth", run_eco.out=eco, figLabel="(g)") 
+  # e16 <-eco_plots(p_f.o, eco_var = "ATWP_perForaging", run_eco.out=eco, figLabel="(h)") 
+  # e17 <-eco_plots(p_f.o, eco_var = "ATWP_DR", run_eco.out=eco, figLabel="(i)") 
+  
+    
+  mp <- gridExtra::grid.arrange(e1,e4,e11,e12,e13, 
+                          # e14,e15,e16,e17, 
+                          ncol=3, 
                            top = textGrob(paste("Ecological Plots:",
                                                 paste(pgls_function.out$response_var,"res",sep="_")),
                                           gp=gpar(fontsize=18)))
+  return(mp)
                          #e6,e7,e10
     # mod_vars <- list(eco_vars=c("DietBreadth","PopulationDensity_n_km2","GroupSize_filled", "Home_Range", "Residual_HomeRange")) 
   # subplot(e1,e4,e11,e12,e13, nrows = 2, shareY=F, shareX=F, titleX = T, titleY=T, margin = 0.1) 
@@ -353,9 +686,6 @@ all_eco_plots <- function(pgls_function.out){
   #   fluidRow( column(4, e1), column(4, e4), column(4, e11)),
   #   fluidRow( column(4, e12), column(8, e13) )
   # )
-
-   
-
   #plot_grid( plotlist = list(e1,e4,e11,e12,e13), labels = list()) 
 }
 ```
@@ -365,13 +695,20 @@ all_eco_plots <- function(pgls_function.out){
 
 ## Calculate Residual_HomeRange
 
-```{r Calculate Residual_HomeRange}
-HR_phylo <- contMap(HP$phy, HP$data$Home_Range, type="phylogram", plot=FALSE)
-  plot(res_phylo_plot, leg.txt="Home Range",lwd=3, fsize=c(0.5, 1)) 
+```{r Calculate Residual_HomeRange} 
+suffix = " (log mm3)"#expression(" (log"~mm^3~')')
+ 
+# HR_phylo <- contMap(HP$phy, HP$data$Home_Range, type="phylogram", plot=F)
+# plot(HR_phylo, leg.txt="Home Range",lwd=3, fsize=c(0.5, 1)) 
   
 # We know HomeRange scales with BodySize, so perhaps using "extra" HR relative to body weight is a more relavent measure.
   ## Alternatively could include BodySize as covariate in eco model.
-HR.body_res <- pgls_function(HP, "Home_Range", "Body_Size")
+# HP$data$Body.Size <- log10(HP$data$Body_Size)
+HR.body_res <- pgls_function(HP, "Home_Range", "Body_Size", 
+                             norm_func = log_scale,
+                             x_prefix = "", x_suffix = " (g)", 
+                             y_prefix = "", y_suffix = " (km2)") 
+
 # Put back into Comp.data
 HP$data$Residual_HomeRange <- HR.body_res$residuals
 ```
@@ -380,18 +717,23 @@ HP$data$Residual_HomeRange <- HR.body_res$residuals
 
 ### retroHP vs. Total Brain Vol
 
+- For eco analysis, use ``scale_log`` (or else PGLS will throw a "reciprocal" error).  
+- For eco plot, just plot ``log10`` of each ecological varialbe (except *Residual_HomeRange*, which is already normal), and the untransformed y-axis residuals (which are also already normal).
+
 ```{r retroHP vs. Total Brain Vol}
 # HP vs. Brain
-HP.Brain_res <- pgls_function(HP, "retroHP", "Brain__HP") 
-run_eco(HP.Brain_res);  all_eco_plots(HP.Brain_res)
+HP.Brain_res <- pgls_function(HP, "retroHP", "Brain__HP", y_suffix = suffix, x_suffix = suffix) 
+run_eco(pgls_function.out = HP.Brain_res)
+all_eco_plots(pgls_function.out = HP.Brain_res)
 ```
 
 ### __***retroHP vs. Medulla***__
 
 ```{r retroHP vs. Medulla}
 # HP vs. Medulla
-HP.Med_res <- pgls_function(HP, "retroHP", "Medulla")
-run_eco(HP.Med_res);   all_eco_plots(HP.Med_res)
+HP.Med_res <- pgls_function(HP, "retroHP", "Medulla", y_suffix = suffix, x_suffix = suffix)
+retroHP.Medulla <- run_eco(HP.Med_res)
+all_eco_plots(HP.Med_res)
 
 # Hyp: Relationship with overall brain vol?
 #pgls_function(HP, "retroHP_res", "BrainVol")
@@ -420,8 +762,10 @@ phenogram(HP.Med_res$new_comp_data$phy, x=HPres, spread.labels=T,
 
 ```{r retroHP_res vs. BrainVol}
 #Hyp: As brain size scales up, does retroHP_res becomes proportionally smaller?
-HPres.Brain_res <- pgls_function(HP, "retroHP_res", "Brain__HP")
-run_eco(HPres.Brain_res);   all_eco_plots(HPres.Brain_res)
+HPres.Brain_res <- pgls_function(HP, "retroHP_res", "log10(Brain__HP)", y_suffix = "", 
+                                 norm_func = function(x){x})
+retroHP.Brain <- run_eco(pgls_function.out = HPres.Brain_res)
+all_eco_plots(HPres.Brain_res) 
 #Result: No relationship.
 ```
 
@@ -429,10 +773,11 @@ run_eco(HPres.Brain_res);   all_eco_plots(HPres.Brain_res)
 
 ```{r retroHP_res vs. Encephalization}
 #Hyp: As Encephalization scales up, does retroHP_res become proportionally smaller?
-Enceph_res <- pgls_function(HP, "BrainVol", "Body__Brain")
-
-HPres.Enceph_res <- pgls_function(HP, "retroHP_res", "BrainVol_res")
-run_eco(HPres.Enceph_res);   all_eco_plots(HPres.Enceph_res)
+Enceph_res <- pgls_function(HP, "BrainVol", "Body__Brain", y_suffix = suffix, x_suffix = suffix)
+#Don't normalize residuals 
+pgls_function(HP, "retroHP_res", "BrainVol_res", x_suffix = "", y_suffix = "")
+run_eco(HPres.Enceph_res)
+all_eco_plots(HPres.Enceph_res)
 #Result: No relationship.
 ```
 
@@ -445,26 +790,35 @@ run_eco(HPres.Enceph_res);   all_eco_plots(HPres.Enceph_res)
 ### Entorhinal Cortex* vs. Medulla
 
 NOTE: Using EC.med instead of EC.HP 1) flips the axes of the pPCA, and 2) gets rid of selective regime shift in human lineage. This is because humans are more divergent in EC.med (due to our massively enlarged neocotex, which EC is part of).
+
+
 ```{r Entorhinal Cortex* vs. Medulla}
-EC.Med_res <-pgls_function(HP, "EC", "Medulla")
-run_eco(EC.Med_res);   all_eco_plots(EC.Med_res)
+EC.Med_res <-pgls_function(HP, "EC", "Medulla",  y_suffix = suffix, x_suffix = suffix)
+run_eco(pgls_function.out = EC.Med_res)
+all_eco_plots(EC.Med_res)
 ```
 
 ### Entorhinal Cortex* vs. BrainVol
 
-```{r Entorhinal Cortex* vs. BrainVol}
-EC.Brain_res <-pgls_function(HP, "EC", "Brain__EC")
-run_eco(EC.Brain_res); all_eco_plots(EC.Brain_res)
+- Happ-only eco model approaching sig (p=~0.06) after normalizing and using phylostep for variable selection.
+
+```{r Entorhinal Cortex* vs. BrainVol, eval=F}
+EC.Brain_res <-pgls_function(HP, "EC", "Brain__EC", y_suffix = suffix, x_suffix = suffix)
+run_eco(EC.Brain_res)
+all_eco_plots(EC.Brain_res)
 ```
 
 ### Entorhinal Cortex* vs. retroHP
 
 **Note:: Used as final EC**
 
-Result: No relationship
+- Happ-only eco model sig (p=~0.01) after normalizing and using phylostep for variable selection.
+
 ```{r Entorhinal Cortex* vs. retroHP}
-EC.HP_res <-pgls_function(HP, "EC", "retroHP")
-run_eco(EC.HP_res);   all_eco_plots(EC.HP_res)
+EC.HP_res <-pgls_function(HP, "EC", "retroHP", norm_func = log10,
+                           y_suffix = suffix, x_suffix = suffix)
+EC.retroHP <- run_eco(EC.HP_res)
+all_eco_plots(EC.HP_res)
 #pgls_function(HP, "EC_res", "BrainVol")
 ```
 
@@ -473,23 +827,29 @@ run_eco(EC.HP_res);   all_eco_plots(EC.HP_res)
 ### HP Fibers vs. Medulla
 
 ```{r HP Fibers vs. Medulla}
-fibers.Med_res <-pgls_function(HP, "Fibers", "Medulla")
-run_eco(fibers.Med_res);   all_eco_plots(fibers.Med_res)
+fibers.Med_res <-pgls_function(HP, "Fibers", "Medulla", norm_func = log10,
+                                y_suffix = suffix, x_suffix = suffix)
+run_eco(fibers.Med_res)
+all_eco_plots(fibers.Med_res)
 ```
 
 ### HP Fibers vs. BrainVol
 
 ```{r HP Fibers vs. BrainVol}
-fibers.brain_res <-pgls_function(HP, "Fibers", "Brain__Fib")
-run_eco(fibers.brain_res); all_eco_plots(fibers.brain_res)
+fibers.brain_res <-pgls_function(HP, "Fibers", "Brain__Fib", norm_func = log10,
+                                  y_suffix = suffix, x_suffix = suffix)
+run_eco(fibers.brain_res)
+all_eco_plots(fibers.brain_res)
 ```
 
 ### HP Fibers vs. retroHP + EC * * *
 
 Result: No relationship
 ```{r HP Fibers vs. retroHP + EC}
-fibers.HP_res <-pgls_function(HP, "Fibers", "retroHP.EC")
-run_eco(fibers.HP_res);   all_eco_plots(fibers.HP_res)
+fibers.HP_res <-pgls_function(HP, "Fibers", "retroHP.EC", lambda =  0.001, norm_func = log10,
+                               y_suffix = suffix, x_suffix = suffix)
+Fibers.retroHP.EC <- run_eco(fibers.HP_res)
+all_eco_plots(fibers.HP_res)
 #pgls_function(HP, "Fibers_res", "BrainVol") 
 ```
 
@@ -499,8 +859,10 @@ run_eco(fibers.HP_res);   all_eco_plots(fibers.HP_res)
 
 Result: No relationship
 ```{r DentateGyrus vs. retroHP}
-DG.HP_res <- pgls_function(HP, "DG", "retroHP__DG")
-run_eco(DG.HP_res); all_eco_plots(DG.HP_res)
+DG.HP_res <- pgls_function(HP, "DG", "retroHP__DG", norm_func = log10,
+                            y_suffix = suffix, x_suffix = suffix)
+DG.retroHP <- run_eco(DG.HP_res)
+all_eco_plots(DG.HP_res)
 #pgls_function(HP, "DG_res", "BrainVol")
 ```
 
@@ -508,8 +870,17 @@ run_eco(DG.HP_res); all_eco_plots(DG.HP_res)
  
 Result: No relationship
 ```{r FasciaDentata vs. retroHP}
-FD.HP_res <- pgls_function(HP, "FD", "retroHP__FD")
-run_eco(FD.HP_res); all_eco_plots(FD.HP_res)
+FD.HP_res <- pgls_function(HP, "FD", "retroHP__FD", norm_func = log10,
+                            y_suffix = suffix, x_suffix = suffix)
+FD.retroHP <- run_eco(FD.HP_res, variable_selection = T)
+mp <- all_eco_plots(FD.HP_res)
+ggsave("./Figures/FINAL/Fig4.png", mp, dpi=400, height=6, width=9)
+
+
+# improve model
+dat <- nonNA_subset(HP = HP, eco_vars = "Residual_HomeRange", response_var = "FD_res")
+model <- caper::pgls(data = dat, formula = FD_res ~ Residual_HomeRange, lambda = "ML") 
+summary(model)
 #pgls_function(HP, "FD_res", "BrainVol")
 ```
 
@@ -517,8 +888,10 @@ run_eco(FD.HP_res); all_eco_plots(FD.HP_res)
  
 Result: No relationship
 ```{r Hilus vs. retroHP}
-Hilus.HP_res <- pgls_function(HP, "Hilus", "retroHP__Hil")
-run_eco(Hilus.HP_res);   all_eco_plots(Hilus.HP_res)
+Hilus.HP_res <- pgls_function(HP, "Hilus", "retroHP__Hil", norm_func = log10,
+                               y_suffix = suffix, x_suffix = suffix)
+Hilus.retroHP <- run_eco(Hilus.HP_res, norm_func = logTrans_missing)
+all_eco_plots(Hilus.HP_res)
 #pgls_function(HP, "Hilus_res", "BrainVol")
 ```
 
@@ -526,8 +899,10 @@ run_eco(Hilus.HP_res);   all_eco_plots(Hilus.HP_res)
 
 Result: Positive relationship between CA2.3_res and retroHP_res.
 ```{r CA2/3 vs. retroHP}
-CA2.3.HP_res <- pgls_function(HP, "CA2.3", "retroHP__CA2.3")
-run_eco(CA2.3.HP_res);   all_eco_plots(CA2.3.HP_res)
+CA2.3.HP_res <- pgls_function(HP, "CA2.3", "retroHP__CA2.3", norm_func = log10,
+                               y_suffix = suffix, x_suffix = suffix)
+CA2.3.retroHP <- run_eco(CA2.3.HP_res)
+all_eco_plots(CA2.3.HP_res)
 #pgls_function(HP, "CA2.3_res", "BrainVol") # No relationship
 #pgls_function(HP, "CA2.3_res", "retroHP") # No relationship
 #pgls_function(HP, "CA2.3_res", "retroHP_res") # Signficant***
@@ -537,8 +912,10 @@ run_eco(CA2.3.HP_res);   all_eco_plots(CA2.3.HP_res)
 
 Result: CA3_res gets smaller as retroHP_res gets larger. Humans deviate drastically from this trend by having an unusually large CA3_res.
 ```{r CA3 vs. retroHP}
-CA3.HP_res <- pgls_function(HP, "CA3", "retroHP__CA3")
-run_eco(CA3.HP_res);   all_eco_plots(CA3.HP_res)
+CA3.HP_res <- pgls_function(HP, "CA3", "retroHP__CA3", norm_func = log10,
+                             y_suffix = suffix, x_suffix = suffix)
+CA3.retroHP <- run_eco(CA3.HP_res)
+all_eco_plots(CA3.HP_res)
 
 #pgls_function(HP, "CA3_res", "BrainVol")# No relationship
 #pgls_function(HP, "CA3_res", "retroHP")# No relationship
@@ -549,8 +926,10 @@ run_eco(CA3.HP_res);   all_eco_plots(CA3.HP_res)
 
 Result: CA2_res gets smaller has retroHP_res gets larger. Humans deviate from this by having somewhat larger CA2_res than expected.
 ```{r CA2 vs. retroHP}
-CA2.HP_res <- pgls_function(HP, "CA2", "retroHP__CA2")
-run_eco(CA2.HP_res); all_eco_plots(CA2.HP_res) 
+CA2.HP_res <- pgls_function(HP, "CA2", "retroHP__CA2", norm_func = log10,
+                             y_suffix = suffix, x_suffix = suffix)
+CA2.retroHP <- run_eco(CA2.HP_res)
+all_eco_plots(CA2.HP_res) 
 #pgls_function(HP, "CA2_res", "BrainVol")# No relationship
 #pgls_function(HP, "CA2_res", "retroHP")# No relationship
 #pgls_function(HP, "CA2_res", "retroHP_res") # Significant *** 
@@ -560,17 +939,110 @@ run_eco(CA2.HP_res); all_eco_plots(CA2.HP_res)
 
 Result: No relationship.
 ```{r CA1 vs. retroHP}
-CA1.HP_res <- pgls_function(HP, "CA1", "retroHP__CA1")
-run_eco(CA1.HP_res); all_eco_plots(CA1.HP_res) 
-#pgls_function(HP, "CA1_res", "BrainVol")
+CA1.HP_res <- pgls_function(HP, "CA1", "retroHP__CA1", y_suffix = suffix, x_suffix = suffix)
+CA1.retroHP <- run_eco(pgls_function.out = CA1.HP_res, variable_selection = T)
+ca1.plot <- all_eco_plots(CA1.HP_res)
+print(ca1.plot)
+ggsave("./Figures/FINAL/Fig5.png", ca1.plot, dpi=400, height=6, width=9)
+
+ 
+dat <- nonNA_subset(HP = HP, eco_vars = "Residual_HomeRange", response_var = "CA1_res")
+model <- caper::pgls(data = dat, formula = CA1_res ~ Residual_HomeRange, lambda = "ML") 
+summary(model)
+
+CA1.HP_res <- pgls_function(dat, "CA1_res", "Residual_HomeRange", 
+                            y_suffix = suffix, x_suffix = suffix, norm_func = function(x){x})
+
+CA1.HP_res$xy_plot + 
+  geom_point(data = HP$data["Homo_sapiens",], aes(x=Residual_HomeRange, y=CA1_res), 
+             shape="2", color="goldenrod2", size=4)
+ 
+# Phylogram
+res_name <- "Residual_HomeRange"
+
+cont_map <- function(comp_data, res_name){
+  # comp_data <- HP
+  HPres_data <- as.matrix(comp_data$data[res_name])
+  names(HPres_data) <- comp_data$phy$tip.label
+  res_phylo_plot <- contMap(comp_data$phy, 
+                            HPres_data, 
+                            type="phylogram", 
+                            plot=F, fsize=c(0.5, 1)) 
+  
+ # fancyTree(tree = comp_data$phy, 
+  #           x=HPres_data, 
+  #           type="contmap",
+  #           fsize=c(0.5, 1))
+    ## simulate correlated trait data
+  # http://blog.phytools.org/2013/09/plotting-facing-trees-using-phytools.html 
+  return(res_phylo_plot)
+}
+
+fsize <- c(.5, 1)
+
+plot.new()
+par(mfrow=c(1,1)) 
+
+res_name <- "Residual_HomeRange"
+cp0 <- cont_map(HP, res_name) 
+plot(cp0, leg.txt=paste(res_name),lwd=3, fsize=fsize) 
+png("./Figures/pheno1.png", res = 100, height=10)
+
+dev.off()
+
+res_name <- "FD_res"
+cp1 <- cont_map(HP, res_name)
+plot(cp1, leg.txt=paste(res_name),lwd=3, fsize=fsize)
+
+res_name <- "CA1_res"
+cp2 <- cont_map(HP, res_name)
+plot(cp2, leg.txt=paste(res_name),lwd=3, fsize=fsize)
+dev.off()
+
+
+ 
+ 
+
+# HR.HRres <- pgls_function(HP, "Home_Range", "Residual_HomeRange", norm_func = function(x){x}, y_suffix = " (km2)", x_suffix = "")
+# HR.HRres.log <- pgls_function(HP, "log10(Home_Range)", "Residual_HomeRange", norm_func = function(x){x}, y_suffix = " (km2)", x_suffix = "")
+# 
+# HR.HRres$xy_plot + labs(title="Untransformed") +
+# HR.HRres.log$xy_plot + labs(title="Log transformed")
+# 
+# 
+
+# ALternative methods for selective regime shift analysis 
+# shifts <- phylolm::OUshifts(y=dat$data$CA1_res, phy = dat$phy, nmax=5)
+# phylolm::plot.OUshifts(shifts)
+
+# logTrans_missing(CA1.HP_res$new_comp_data$data$CA1_res)
+# Reduced model with only the sig eco vars
+pgls.plot_predictions <- function(pgls.object, x="Residual_HomeRange", y="Home_Range"){
+  # pgls.object <- CA1.HP_res
+  comp_data <- pgls.object$new_comp_data
+  model <- caper::pgls(data=comp_data, formula = eval(parse(text=paste(y,"~",x))))
+  pgls_summary <- summary(model) 
+  pgls.xy_plot(comp_data, pgls_summary, response_var = y, predictor_var = x)
+ 
+  
+  x.values <- as.numeric(comp_data$data[[x]])
+  x.smooth<- seq(min(x.values),max(x.values),.01)
+  setNames(list(x.smooth), x)
+  exp.predict <- exp(predict(model, list(Residual_HomeRange = x.smooth)))
+  exp.line <- data.frame(x=x.smooth, y=exp.predict)
+  pgls.object$xy_plot + geom_line(data = exp.line, aes(x,y), inherit.aes = F) 
+}
+
+
 ```
 
 ### Subiculum vs. retroHP
 
 Result: No relationship
 ```{r Subiculum vs. retroHP}
-Sub.HP_res <- pgls_function(HP, "Sub", "retroHP__Sub")
-run_eco(Sub.HP_res); all_eco_plots(Sub.HP_res) 
+Sub.HP_res <- pgls_function(HP, "Sub", "retroHP__Sub", y_suffix = suffix, x_suffix = suffix)
+Sub.retroHP <- run_eco(Sub.HP_res)
+all_eco_plots(Sub.HP_res) 
 #pgls_function(HP, "Sub_res", "BrainVol")
 ```
 
@@ -579,37 +1051,64 @@ run_eco(Sub.HP_res); all_eco_plots(Sub.HP_res)
 ## All neuroanatomical regression plots
 ### Scaling diagnostic multiplots
 ```{r Scaling diagnostic multiplots}
-grid.arrange(HP.Med_res$xy_plot + ggtitle("A") + 
+grid.arrange(HP.Med_res$xy_plot + ggtitle("(a)") + 
                theme(plot.title = element_text(hjust= -.13, size = 18)), 
-             HP.Brain_res$xy_plot+ ggtitle("B") + 
+             HP.Brain_res$xy_plot+ ggtitle("(b)") + 
                theme(plot.title = element_text(hjust= -.13, size = 18)), 
-             HPres.Enceph_res$xy_plot + ggtitle("C") + 
+             HPres.Enceph_res$xy_plot + ggtitle("(c)") + 
                theme(plot.title = element_text(hjust= -.13, size = 18)),
-             HPres.Brain_res$xy_plot + ggtitle("D") + 
+             HPres.Brain_res$xy_plot + ggtitle("(d)") + 
                theme(plot.title = element_text(hjust= -.13, size = 18)), 
-             HR.body_res$xy_plot + ggtitle("E") +
+             HR.body_res$xy_plot + ggtitle("(e)") +
                 theme(legend.position=c(1.3, 0.35), legend.background = element_rect(fill="whitesmoke"),
                       plot.title = element_text(hjust= -.13, size = 18)),
              ncol = 3, 
              top = textGrob("Scaling Diagnostics", gp=gpar(fontsize=18)))
 
-HR.body_res$pgls_summary
+# HR.body_res$pgls_summary
 ```
 
 ### EC & Fibers multiplots
 ```{r EC & Fibers multiplots}
-grid.arrange(EC.HP_res$xy_plot, EC.Med_res$xy_plot, EC.Brain_res$xy_plot,
-             fibers.HP_res$xy_plot, fibers.Med_res$xy_plot, fibers.brain_res$xy_plot, 
-                 ncol=3, top=textGrob("EC & Fiber Regressions", gp=gpar(fontsize=18)))
+grid.arrange(EC.HP_res$xy_plot, 
+             EC.Med_res$xy_plot, 
+             EC.Brain_res$xy_plot,
+             fibers.HP_res$xy_plot, 
+             fibers.Med_res$xy_plot, 
+             fibers.brain_res$xy_plot, 
+             ncol=3, top=textGrob("EC & Fiber Regressions", gp=gpar(fontsize=18)))
 ```
 
 ### retroHP subfield multiplots
-```{r retroHP subfield multiplots}
-grid.arrange(DG.HP_res$xy_plot, FD.HP_res$xy_plot, 
-                 Hilus.HP_res$xy_plot, CA2.3.HP_res$xy_plot, 
-                 CA3.HP_res$xy_plot, CA2.HP_res$xy_plot,
-                 CA1.HP_res$xy_plot, Sub.HP_res$xy_plot, 
-                 ncol=4, top=textGrob("retroHP Subfield Regressions", gp=gpar(fontsize=18)))
+```{r retroHP subfield multiplots} 
+mp <- cowplot::plot_grid(# Scaling Diagnostics
+                   HP.Med_res$xy_plot + theme_classic() + 
+                     theme(legend.position="none", plot.background = element_rect(fill="whitesmoke")), 
+                   HP.Brain_res$xy_plot + theme_classic() + 
+                     theme(legend.position="none", plot.background = element_rect(fill="whitesmoke")), 
+                   HPres.Brain_res$xy_plot + theme_classic() + 
+                     theme(legend.position="none", plot.background = element_rect(fill="whitesmoke")), 
+                   HPres.Enceph_res$xy_plot + theme_classic() +
+                     theme(legend.position="none", plot.background = element_rect(fill="whitesmoke")), 
+                   HR.body_res$xy_plot + theme_classic() + 
+                     theme(legend.position="none", plot.background = element_rect(fill="whitesmoke")), 
+                   # Subregional Plots
+                   EC.HP_res$xy_plot + theme_classic() + theme(legend.position="none"), 
+                   DG.HP_res$xy_plot + theme_classic() + theme(legend.position="none"), 
+                   FD.HP_res$xy_plot + theme_classic() + theme(legend.position="none"), 
+                   Hilus.HP_res$xy_plot + theme_classic() + theme(legend.position="none"), 
+                   CA2.3.HP_res$xy_plot + theme_classic() + theme(legend.position="none"), 
+                   CA3.HP_res$xy_plot + theme_classic() + theme(legend.position="none"), 
+                   CA2.HP_res$xy_plot + theme_classic() + theme(legend.position="none"),
+                   CA1.HP_res$xy_plot + theme_classic() + theme(legend.position="none"), 
+                   Sub.HP_res$xy_plot + theme_classic() +  theme(legend.position=c(1.5, 0.5), 
+                                                            legend.background = element_rect(fill="whitesmoke"),
+                                                            plot.title = element_text(hjust= -.13, size = 18)),
+                   labels = paste0("(",letters,")"),
+                   label_x = .15,
+                   ncol=5)
+print(mp)
+ggsave("./Figures/FINAL/Fig3.png", mp, dpi = 400, height=8, width=15)
 ```
 
 ## Subfield Proportions {.tabset .tabset-fade .tabset-pills}
@@ -624,7 +1123,7 @@ subregion_proportions <- function(HP_data, subregions){
     subset(select=c("Clade", subregions)) %>%   
     mutate(HP_complex = rowSums( .[subregions])) %>% 
     mutate_at(vars(-Clade), funs(./ HP_complex*100)) %>%
-    group_by(Clade) %>% 
+    # group_by(Clade) %>% 
     summarise_at(vars(-Clade), funs(mean(., na.rm=TRUE))) %>% 
     subset(select=-HP_complex) %>%
     melt(id.vars = c("Clade"),  variable.name = "Subregion", value.name = "% Total Volume") %>% arrange(Clade)
@@ -636,7 +1135,8 @@ subregion_proportions <- function(HP_data, subregions){
   bp %>% ggplotly()
 } 
 # Absolute
-subregion_proportions(HP$data, c("Sub", "CA1", "CA2", "CA3", "Hilus", "FD", "EC","Fibers")) 
+subregion_proportions(HP_data = HP$data, 
+                      subregions = c("Sub", "CA1", "CA2", "CA3", "Hilus", "FD", "EC","Fibers")) 
 ```
 
 ### Residual Proportions 
@@ -685,6 +1185,7 @@ extract_neuro <- function(pgls_function.out){
 
 neuro.summ <- rbind(
       data.frame(Residual="retroHP.med_res", extract_neuro(HP.Med_res)),
+      data.frame(Residual="retroHP.brain_res", extract_neuro(HP.Brain_res)),
       data.frame(Residual="EC.HP_res", extract_neuro(EC.HP_res)),
       data.frame(Residual="Fiber.HP_res", extract_neuro(fibers.HP_res)),
       data.frame(Residual="DG.HP_res", extract_neuro(DG.HP_res)),
@@ -728,6 +1229,64 @@ createDT(neuro.summ, caption="Neuroanatomical PGLS Regressions Summary", save="n
 
 ### PGLS: HP-eco stats
 
+```{r PGLS: Optimized HP-eco stats}
+optimized.models <- list(retroHP.Medulla, 
+  retroHP.Brain, 
+  EC.retroHP, 
+  Fibers.retroHP.EC, 
+  DG.retroHP, 
+  FD.retroHP, 
+  Hilus.retroHP,
+  CA2.3.retroHP,
+  CA3.retroHP,
+  CA2.retroHP, 
+  CA1.retroHP,
+  Sub.retroHP)
+
+# mod <- optimized.models[[1]]
+optimized.df <- lapply(optimized.models, function(mod){  
+  model <- mod$optimized.model
+  pgls_eco_summary <- summary(model)
+  
+  pgls_eco_summary
+  digits <- 3
+  sjstats::boot_p(model$bootstrap) 
+  sjstats::p_value(model) 
+   
+  AIC <- model$aic %>% round(digits)
+  LogLik <- phylolm::logLik.phylolm(model)$logLik %>% round(digits)
+  lambda <- model$optpar  %>% round(digits)
+  
+  
+  
+  # Get model p.value 
+  model.p <- round( pf(f[1],f[2],f[3],lower.tail=F) ,3)
+  # Get other measures
+  Multiple.R2 <- round(pgls_eco_summary$r.squared,3)
+  Adj.R2 <- round(pgls_eco_summary$adj.r.squared[1],3)
+  F.stat <- round(pgls_eco_summary$fstatistic[1],3)
+  Lambda <- round(pgls_eco_summary$param[2],3) 
+  predictors <- gsub("norm_func|resHR_norm_func|res_norm_func|[)]|[(]","",
+                     paste(mod$optimized.model$varNames[-1], collapse=", ")) 
+  
+  output <- list(`Response`=mod$optimized.model$varNames[[1]],
+                 `Optimized Predictors`=predictors,
+                 Multiple.R2=Multiple.R2, 
+                 Adj.R2=Adj.R2, 
+                 F.stat=F.stat, 
+                 Lambda=Lambda,
+                 model.pval=model.p) 
+  return(output)
+  }) %>% data.table::rbindlist()
+
+alpha <- round(0.05/12, 4)
+paste("Alpha = ", alpha)optimized.df
+optimized.df$Sig <-  ifelse(optimized.df$model.pval<0.05 & optimized.df$model.pval>0.01, "*",
+              ifelse(optimized.df$model.pval<0.01 & optimized.df$model.pval>alpha,"**", 
+              ifelse(optimized.df$model.pval<alpha,"***", "")))
+```
+
+
 ```{r PGLS: HP-eco stats}
 #pgls_function.out <- Sub.HP_res
 extract_eco <- function(pgls_function.out){
@@ -743,14 +1302,13 @@ extract_eco <- function(pgls_function.out){
   Adj.R2 <- round(pgls_eco_summary$adj.r.squared[1],3)
   F.stat <- round(pgls_eco_summary$fstatistic[1],3)
   Lambda <- round(pgls_eco_summary$param[2],3)
-
   output <- list(Multiple.R2=Multiple.R2, Adj.R2=Adj.R2, F.stat=F.stat, Lambda=Lambda,
                  model.pval=model.p)
   return(output)
 }
-
-eco.summ <- rbind(
+eco.summ <- rbind( 
       data.frame(Residual="retroHP.med_res", extract_eco(HP.Med_res)),
+      data.frame(Residual="retroHP.brain_res", extract_eco(HP.Brain_res)),
       data.frame(Residual="EC.HP_res", extract_eco(EC.HP_res)),
       data.frame(Residual="Fiber.HP_res", extract_eco(fibers.HP_res)),
       data.frame(Residual="DG.HP_res", extract_eco(DG.HP_res)),
@@ -771,7 +1329,6 @@ eco.summ$Sig <-  ifelse(eco.summ$model.pval<0.05 & eco.summ$model.pval>0.01, "*"
 row.names(eco.summ)<-NULL
 colnames(eco.summ) <- c("Residual Name",  "Multiple R<sup>2<sup>","Adj. R<sup>2<sup>", 
                           "F stat.", "λ", "Model p-value", "Sig.")
-
 createDT(eco.summ, caption="Ecological PGLS Regressions Summary", save = "eco.results")
 ```
 
@@ -858,7 +1415,11 @@ phy.PCA$lambda # Show lambda
 summPCA <- summary(phy.PCA)
  
 # Simple biplot
-biplot(phy.PCA$S, phy.PCA$L, xlabs=rep("o", nrow(phy.PCA$S)), main = "Phylogenetic PCA: PC Axes", col=c("blue","purple") )
+biplot(phy.PCA$S, 
+       phy.PCA$L, 
+       xlabs=rep("o", nrow(phy.PCA$S)),
+       main = "Phylogenetic PCA: PC Axes", 
+       col=c("blue","purple"))
 # (ggbiplot doesn't recognize phyl.pca format)
 
 # Polygonal PCA
@@ -877,14 +1438,18 @@ DFforPlot["Clade"] <- HP$data$Clade
   Trs <- subset(DFforPlot, Clade=="Tarsiiformes")
 ## Plot PCA
 PC12 <- ggplot(data=DFforPlot, aes(x=PC1, y=PC2, color=Clade, fill=Clade, shape=Clade, label=Species)) + 
-  theme_bw() + theme(plot.title = element_text(hjust = 0.5)) +
+  theme_bw() + theme(plot.title = element_text(hjust = 0.5), plot.subtitle =element_text(hjust = 0.5)) +
   stat_ellipse(geom="polygon", level=0.95, alpha=0.2) +
-  geom_point(size=3) + labs(title = "Phylogenetic PCA: \nResidual Hippocampal Subregions", x = paste("PC1","(", round(POV[1], 2), "%)"), y = paste("PC2","(", round(POV[2], 2), "%)")) +
+  geom_point(size=3) + labs(title = "Phylogenetic PCA", 
+                            subtitle = "Residual Hippocampal Subregions",
+                            x = paste("PC1","(", round(POV[1], 2), "%)"), 
+                            y = paste("PC2","(", round(POV[2], 2), "%)")) +
   scale_x_continuous(expand = c(.1, .1)) + 
-  scale_shape_manual(values=shapes) + scale_color_manual(values=colors) +   scale_fill_manual(values = colors) +
+  scale_shape_manual(values=shapes) + scale_color_manual(values=colors) + 
+  scale_fill_manual(values = colors) +
   geom_text_repel(aes(label=Species), box.padding=unit(0.35, "lines"), 
                   point.padding = unit(0.1, "lines"))
-PC12 %>% ggplotly()
+PC12# %>% ggplotly()
 
 ## PC3 vs. PC4
 DFforPlot <- data.frame(PC3=phy.PCA$S[,3], PC4=phy.PCA$S[,4], Species=Species)
@@ -898,7 +1463,10 @@ DFforPlot["Clade"] <- HP$data$Clade
 PC34 <- ggplot(data=DFforPlot, aes(x=PC3, y=PC4, color=Clade, fill=Clade, shape=Clade, label=Species)) + 
   theme_bw() + theme(plot.title = element_text(hjust = 0.5)) +
   stat_ellipse(geom="polygon", level=0.95, alpha=0.2) +
-  geom_point(size=3) + labs(title = "Phylogenetic PCA: \nResidual Hippocampal Subregions", x = paste("PC3","(", round(POV[3], 2), "%)"), y = paste("PC4","(", round(POV[4], 2), "%)")) +
+  geom_point(size=3) + labs(title = "Phylogenetic PCA:", 
+                            subtitle = "Residual Hippocampal Subregions", 
+                            x = paste("PC3","(", round(POV[3], 2), "%)"), 
+                            y = paste("PC4","(", round(POV[4], 2), "%)")) +
   scale_x_continuous(expand = c(.1, .1)) + 
   scale_shape_manual(values=shapes) + scale_color_manual(values=colors) + 
   scale_fill_manual(values = colors) +
@@ -992,7 +1560,7 @@ phenogram(HP$phy, x=phy.PC2, spread.labels=T, fsize=.75, colors=colz, axes=c(tim
 HP$data$PC1 <- scales::rescale(phy.PC1,c(1,2))
 #PC1.HP_res <- pgls_function(HP, "PC1", "retroHP") # No relationship
 #PC1.Brain <- pgls_function(HP, "PC1", "BrainVol") # No relationship
-PC1.HPres_res <- pgls_function(HP, "PC1", "retroHP_res")
+PC1.HPres_res <- pgls_function(HP, "PC1", "retroHP_res", interact = F)
 CA3.PC1_res <- pgls_function(HP, "CA3_res", "PC1") # Strong relationship, duh.
 
 #Hyp: Since PC1 is largely driven by CA2.3_res, and PC1 correlates with retroHP_res, is there a relationship between retroHP_res and CA3_res?
@@ -1162,8 +1730,11 @@ corrplot.mixed(cor.phylo.matrix, order="original", addrect=3, tl.col="black",
 #  ?l1ou:::plot.l1ou
 
 #install_github("khabbazian/l1ou")
-l1ou <- function(tree, dat, model="pBIC", abbrev_species=F, multi=F){ 
- 
+l1ou <- function(tree, dat, 
+                 criterion="pBIC", 
+                 method="backward",
+                 abbrev_species=F, 
+                 multi=F){ 
   # Shorten species names
    abbrevSpecies <- function(spNames) { 
       species <- lapply(strsplit(spNames, "_"), `[`, 2)
@@ -1194,26 +1765,35 @@ l1ou <- function(tree, dat, model="pBIC", abbrev_species=F, multi=F){
   # fit.OU.model=TRUE, l1ou.options=eModel$l1ou.options)
   # eModel2_plot <- plot(eModel2, edge.width=3); eModel2_plot
   
-    
   
 #Convergence
   ## first fit a model to find individual shifts (no convergence assumed):
-  fit_ind <- estimate_shift_configuration(tree, Y, criterion="AICc", nCores=4)
-  ## then detect which of these shifts are convergent:
-  fit_conv <- estimate_convergent_regimes(fit_ind, criterion="AICc", nCores=4)
-  
+  fit_ind <- l1ou::estimate_shift_configuration(tree, Y, 
+                                                criterion=criterion, # criterion="AICc"
+                                                nCores=4) 
+  print(paste("Shifts detected =", fit_ind$nShifts))
+  # If there's at least one shift...
+  if(fit_ind$nShifts > 0){
+     ## then detect which of these shifts are convergent:
+    fit_conv <- l1ou::estimate_convergent_regimes(fit_ind, 
+                                                  criterion="pBIC",# criterion="AICc"
+                                                  method = method,  
+                                                  nCores=4) 
+  }else {
+    print("No shifts detected; plotting anyway.")
+    fit_conv <- fit_ind
+    
+  }
   # Plot 
   #par(mar=c(2,2,2,2))
   if (multi==F){ 
-    fitconv_plot <- l1ou:::plot.l1ou(model = fit_conv, edge.width=3) 
-  } else {  
-    fitconv_plot <- l1ou:::plot.l1ou(model = fit_conv, cex=1.1,  edge.width=3,
-                                      edge.ann.cex = 1.1, edge.shift.adj = 1.25, label.offset=0.02)
-  } 
-
+      fitconv_plot <- l1ou:::plot.l1ou(model = fit_conv, edge.width=3) 
+    } else {  
+      fitconv_plot <- l1ou:::plot.l1ou(model = fit_conv, cex=1.1,  edge.width=3,
+                                        edge.ann.cex = 1.1, edge.shift.adj = 1.25, label.offset=0.02)
+    } 
   # edge.label.pos = 1,  x.lim=c(15,1) 
-  fitconv_plot
-  
+  print(fitconv_plot)
   
   output <- list(tree.dat=tree.dat, #config_IC=config_IC, 
                 # eModel2=eModel2, eModel2_plot=eModel2_plot, 
@@ -1223,7 +1803,7 @@ l1ou <- function(tree, dat, model="pBIC", abbrev_species=F, multi=F){
 
 ## Fix tree for l1ou
 tree <-force.ultrametric(HP$phy)
-  is.ultrametric(tree)
+is.ultrametric(tree)
 ```
 
 ## l1ou: Multivariate Analyses {.tabset .tabset-fade .tabset-pills}
@@ -1234,69 +1814,79 @@ tree <-force.ultrametric(HP$phy)
 pcDF <- phy.PCA$S[,1:4]
 colnames(pcDF) <- paste("p",colnames(pcDF), sep="")
 
-PCs1_4.pBIC <- l1ou(tree, dat=pcDF, model="pBIC", multi=T, abbrev_species = T)
+PCs1_4.pBIC <- l1ou(tree, dat=pcDF, criterion="pBIC", multi=T, abbrev_species = T)
 ```
 
 ### All Subregions
 
 ```{r l1ou: All Subregions, fig.height=9, fig.width=9}
-# All non-composite subregions
-subs.pBIC <- l1ou(tree, dat=plot.data, model="pBIC", multi=T)
+# All non-composite subregions 
+subs.pBIC <- l1ou(tree, dat=plot.data, criterion="pBIC", multi=T)
 ```
 
 ## Individual Subregions {.tabset .tabset-fade .tabset-pills}
 
-### l1ou: HPres 
+### l1ou: HPres_WholeBrain
 
-```{r l1ou: HPres, fig.height=9, fig.width=9}
+```{r l1ou: HPres_WholeBrain, fig.height=9, fig.width=9}
 #out.extra='style="margin: 200px"'
 # fig.height=9, fig.width=9
-HPres.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,retroHP_res), model="pBIC")
+plot.alldata[order(-plot.alldata$retroHP_res), , drop = FALSE]
+ 
+HPres.pBIC <- l1ou(tree, dat=plot.alldata["retroHP_res"], criterion="pBICess")
+```
+
+### l1ou: HPres_medulla
+
+```{r l1ou: HPres_medulla, fig.height=9, fig.width=9}
+#out.extra='style="margin: 200px"'
+# fig.height=9, fig.width=9
+HPres.pBIC <- l1ou(tree, dat=plot.alldata["retroHP_res"], criterion="pBICess")
 ```
 
 ### l1ou: EC_res 
 
 ```{r l1ou: EC_res, fig.height=9, fig.width=9}
-# fig.height=9, fig.width=9 
-EC.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,EC_res), model="pBIC")
+# fig.height=9, fig.width=9  
+EC.pBIC <- l1ou(tree, dat=plot.alldata["EC_res"], criterion="pBICess")
 ```
 
 ### l1ou: Fibers_res 
 
 ```{r l1ou: Fibers_res, fig.height=9, fig.width=9}
 # fig.height=9, fig.width=9 
-Fibers.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,Fibers_res), model="pBIC")
+Fibers.pBIC <- l1ou(tree, dat=plot.alldata["Fibers_res"], criterion="pBICess")
 ```
 
 ### l1ou: DG/FD/Hilus_res 
 
 ```{r l1ou: DG/FD/Hilus_res, fig.height=9, fig.width=9}
 # fig.height=9, fig.width=9 
-DG.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,DG_res), model="pBIC")
+DG.pBIC <- l1ou(tree, dat=plot.alldata["DG_res"], criterion="pBICess")
 
-FD.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,FD_res), model="pBIC")
-Hilus.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,Hilus_res), model="pBIC")
+FD.pBIC <- l1ou(tree, dat=plot.alldata["FD_res"], criterion="pBICess")
+Hilus.pBIC <- l1ou(tree, dat=plot.alldata["Hilus_res"], criterion="pBICess")
 ```
 
 ### l1ou: CA2.3/2/3_res 
 
 ```{r l1ou: CA2.3/2/3_res, fig.height=9, fig.width=9}
 # Individual subregions
-CA2.3.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,CA2.3_res), model="pBIC")
-  CA3.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,CA3_res), model="pBIC")
-  CA2.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,CA2_res), model="pBIC")
+CA2.3.pBIC <- l1ou(tree, dat=plot.alldata["CA2.3_res"], criterion="pBICess")
+  CA3.pBIC <- l1ou(tree, dat=plot.alldata["CA3_res"], criterion="pBICess")
+  CA2.pBIC <- l1ou(tree, dat=plot.alldata["CA2_res"], criterion="pBICess")
 ```
 
 ### l1ou: CA1_res 
 
 ```{r l1ou: CA1_res, fig.height=9, fig.width=9}
-CA1.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,CA1_res), model="pBIC")
+CA1.pBIC <- l1ou(tree, dat=plot.alldata["CA1_res"], criterion="pBICess")
 ```
 
 ### l1ou: Sub_res 
 
 ```{r l1ou: Sub_res, fig.height=9, fig.width=9}
-Sub.pBIC <- l1ou(tree, dat=dplyr::select(plot.alldata,Sub_res), model="pBIC")
+Sub.pBIC <- l1ou(tree, dat=plot.alldata["Sub_res"], criterion="pBICess")
 ```
 
 ### l1ou: Ecological Variables
@@ -1317,9 +1907,9 @@ fixed <- adjust_data(tree=trim_tree, Y = completeDF)
 Eco.pBIC <- l1ou(fixed$tree, dat=fixed$Y, model="pBIC", multi=T)
 
 # Individual models
-HR.pBIC <- l1ou(tree, dat=dplyr::select(HP$data, Home_Range), model="pBIC")
-HRres.pBIC <- l1ou(tree, dat=dplyr::select(HP$data, Home_Range_res), model="pBIC")
-Group.pBIC <- l1ou(tree, dat=dplyr::select(HP$data, GroupSize_filled), model="pBIC")
+HR.pBIC <- l1ou(tree, dat=HP$data["Home_Range"], criterion="pBIC")
+HRres.pBIC <- l1ou(tree, dat=HP$data["Home_Range_res"], criterion="pBIC")
+Group.pBIC <- l1ou(tree, dat=HP$data["GroupSize_filled"], criterion="pBIC")
 ```
 
 ```{r eco phylogram} 
